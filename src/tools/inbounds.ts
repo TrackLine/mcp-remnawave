@@ -26,7 +26,7 @@ export function registerInboundTools(
         'config_profiles_get',
         'Get a config profile by UUID',
         {
-            uuid: z.string().describe('Config profile UUID'),
+            uuid: z.string().uuid().describe('Config profile UUID'),
         },
         async ({ uuid }) => {
             try {
@@ -56,7 +56,7 @@ export function registerInboundTools(
         'config_profiles_get_inbounds',
         'Get inbounds for a specific config profile',
         {
-            uuid: z.string().describe('Config profile UUID'),
+            uuid: z.string().uuid().describe('Config profile UUID'),
         },
         async ({ uuid }) => {
             try {
@@ -72,7 +72,7 @@ export function registerInboundTools(
         'config_profiles_get_computed_config',
         'Get computed configuration for a config profile',
         {
-            uuid: z.string().describe('Config profile UUID'),
+            uuid: z.string().uuid().describe('Config profile UUID'),
         },
         async ({ uuid }) => {
             try {
@@ -90,7 +90,7 @@ export function registerInboundTools(
         'config_profiles_create',
         'Create a new config profile',
         {
-            name: z.string().describe('Profile name'),
+            name: z.string().min(2).max(30).regex(/^[A-Za-z0-9_\s-]+$/).describe('Profile name'),
         },
         async (params) => {
             try {
@@ -106,8 +106,9 @@ export function registerInboundTools(
         'config_profiles_update',
         'Update a config profile',
         {
-            uuid: z.string().describe('Profile UUID'),
-            name: z.string().optional().describe('New name'),
+            uuid: z.string().uuid().describe('Profile UUID'),
+            name: z.string().min(2).max(30).regex(/^[A-Za-z0-9_\s-]+$/).optional().describe('New name'),
+            config: z.object({}).passthrough().optional().describe('Config profile content object (same shape as returned by getComputedConfig)'),
         },
         async (params) => {
             try {
@@ -123,7 +124,7 @@ export function registerInboundTools(
         'config_profiles_delete',
         'Delete a config profile',
         {
-            uuid: z.string().describe('Profile UUID'),
+            uuid: z.string().uuid().describe('Profile UUID'),
         },
         async ({ uuid }) => {
             try {
@@ -139,7 +140,7 @@ export function registerInboundTools(
         'config_profiles_reorder',
         'Reorder config profiles',
         {
-            uuids: z.array(z.string()).describe('Ordered array of profile UUIDs'),
+            uuids: z.array(z.string().uuid()).describe('Ordered array of profile UUIDs'),
         },
         async (params) => {
             try {
