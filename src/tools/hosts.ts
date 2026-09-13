@@ -291,11 +291,34 @@ export function registerHostTools(server: McpServer, client: RemnawaveClient, re
         async (params) => {
             try {
                 const { uuid, configProfileUuid, configProfileInboundUuid, ...fields } = params;
-                const body: Record<string, unknown> = { uuid, ...fields };
+
+                // The panel treats keys absent from the update body as "reset to default",
+                // so sending only the changed fields silently wipes everything else. In our
+                // fleet, updating one host's remark cleared `isDisabled` on it, and a host
+                // that was deliberately switched off went back into the subscription.
+                // Build the body on top of the host's current state instead.
+                const current = (await client.getHostByUuid(uuid)) as {
+                    response?: Record<string, unknown>;
+                };
+                const host = current?.response;
+                if (!host) {
+                    throw new Error(`Host ${uuid} not found, refusing to update blindly`);
+                }
+
+                // `viewPosition` is returned by the panel but rejected in the update body.
+                const { viewPosition: _viewPosition, ...merged } = host;
+                const body: Record<string, unknown> = { ...merged, uuid };
+                for (const [key, value] of Object.entries(fields)) {
+                    if (value !== undefined) body[key] = value;
+                }
                 if (configProfileUuid !== undefined || configProfileInboundUuid !== undefined) {
+                    // Same rule one level down: the inbound is replaced as a whole, so a
+                    // partially specified inbound would drop the half that was not passed.
+                    const inbound = (host.inbound ?? {}) as Record<string, unknown>;
                     body.inbound = {
-                        ...(configProfileUuid !== undefined ? { configProfileUuid } : {}),
-                        ...(configProfileInboundUuid !== undefined ? { configProfileInboundUuid } : {}),
+                        configProfileUuid: configProfileUuid ?? inbound.configProfileUuid,
+                        configProfileInboundUuid:
+                            configProfileInboundUuid ?? inbound.configProfileInboundUuid,
                     };
                 }
                 const result = await client.updateHost(body);
