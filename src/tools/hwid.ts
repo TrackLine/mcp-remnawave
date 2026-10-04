@@ -12,11 +12,11 @@ export function registerHwidTools(
         'hwid_devices_list',
         'List HWID devices for a specific user',
         {
-            userUuid: z.string().describe('User UUID'),
+            userId: z.number().describe('Numeric user id'),
         },
-        async ({ userUuid }) => {
+        async ({ userId }) => {
             try {
-                const result = await client.getUserHwidDevices(userUuid);
+                const result = await client.getUserHwidDevices(userId);
                 return toolResult(result);
             } catch (e) {
                 return toolError(e);
@@ -72,7 +72,7 @@ export function registerHwidTools(
         'hwid_device_create',
         'Create a HWID device entry for a user',
         {
-            userUuid: z.string().describe('User UUID'),
+            userId: z.number().describe('Numeric user id'),
             hwid: z.string().describe('Hardware ID'),
             platform: z.string().optional().describe('Device platform'),
             osVersion: z.string().optional().describe('OS version'),
@@ -93,12 +93,12 @@ export function registerHwidTools(
         'hwid_device_delete',
         'Delete a specific HWID device',
         {
-            userUuid: z.string().describe('User UUID'),
+            userId: z.number().describe('Numeric user id'),
             hwid: z.string().describe('HWID of the device to delete'),
         },
-        async ({ userUuid, hwid }) => {
+        async ({ userId, hwid }) => {
             try {
-                const result = await client.deleteHwidDevice(userUuid, hwid);
+                const result = await client.deleteHwidDevice(userId, hwid);
                 return toolResult(result);
             } catch (e) {
                 return toolError(e);
@@ -110,12 +110,12 @@ export function registerHwidTools(
         'hwid_devices_delete_all',
         'Delete all HWID devices for a user',
         {
-            userUuid: z.string().describe('User UUID'),
+            userId: z.number().describe('Numeric user id'),
         },
-        async ({ userUuid }) => {
+        async ({ userId }) => {
             try {
                 const result =
-                    await client.deleteAllUserHwidDevices(userUuid);
+                    await client.deleteAllUserHwidDevices(userId);
                 return toolResult(result);
             } catch (e) {
                 return toolError(e);

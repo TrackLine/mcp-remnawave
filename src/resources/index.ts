@@ -71,16 +71,16 @@ export function registerAllResources(
 
     server.resource(
         'user-details',
-        new ResourceTemplate('remnawave://users/{uuid}', {
+        new ResourceTemplate('remnawave://users/{id}', {
             list: undefined,
         }),
         {
-            description: 'Detailed information about a specific Remnawave user',
+            description: 'Detailed information about a specific Remnawave user by numeric user id',
             mimeType: 'application/json',
         },
         async (uri, params) => {
-            const uuid = params.uuid as string;
-            const user = await client.getUserByUuid(uuid);
+            const id = params.id as string;
+            const user = await client.getUserById(id);
             return {
                 contents: [
                     {

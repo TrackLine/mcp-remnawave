@@ -25,14 +25,14 @@ export function registerSubscriptionTools(
     );
 
     server.tool(
-        'subscriptions_get_by_uuid',
-        'Get subscription details by UUID',
+        'subscriptions_get_by_user_id',
+        'Get subscription by numeric user id',
         {
-            uuid: z.string().describe('Subscription UUID'),
+            userId: z.number().describe('Numeric user id'),
         },
-        async ({ uuid }) => {
+        async ({ userId }) => {
             try {
-                const result = await client.getSubscriptionByUuid(uuid);
+                const result = await client.getSubscriptionByUserId(userId);
                 return toolResult(result);
             } catch (e) {
                 return toolError(e);
@@ -111,10 +111,10 @@ export function registerSubscriptionTools(
 
     server.tool(
         'subscriptions_get_connection_keys',
-        'Get connection keys for a subscription',
-        { uuid: z.string().describe('Subscription UUID') },
-        async ({ uuid }) => {
-            try { return toolResult(await client.getConnectionKeysByUuid(uuid)); } catch (e) { return toolError(e); }
+        'Connection keys for a user',
+        { userId: z.number().describe('Numeric user id') },
+        async ({ userId }) => {
+            try { return toolResult(await client.getConnectionKeysByUserId(userId)); } catch (e) { return toolError(e); }
         },
     );
 

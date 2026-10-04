@@ -99,19 +99,19 @@ export function registerAllPrompts(server: McpServer) {
         'user_audit',
         'Complete audit of a specific user',
         {
-            uuid: z.string().describe('User UUID to audit'),
+            id: z.number().describe('Numeric user id'),
         },
-        async ({ uuid }) => ({
+        async ({ id }) => ({
             messages: [
                 {
                     role: 'user' as const,
                     content: {
                         type: 'text' as const,
-                        text: `Perform a complete audit of user ${uuid}:
+                        text: `Perform a complete audit of user ${id}:
 
-1. Get full user details using users_get
-2. Get subscription info using subscriptions_get_by_uuid
-3. Get HWID devices using hwid_devices_list
+1. Get full user details using users_get with that id
+2. Get subscription info using subscriptions_get_by_user_id
+3. Get HWID devices using hwid_devices_list with that user id
 4. Summarize:
    - Account status and expiration
    - Traffic usage vs limit

@@ -11,9 +11,9 @@ export function registerMetadataTools(server: McpServer, client: RemnawaveClient
     });
 
     server.tool('metadata_user_get', 'Get metadata for a specific user', {
-        uuid: z.string().describe('User UUID'),
-    }, async ({ uuid }) => {
-        try { return toolResult(await client.getUserMetadata(uuid)); } catch (e) { return toolError(e); }
+        userId: z.number().describe('Numeric user id'),
+    }, async ({ userId }) => {
+        try { return toolResult(await client.getUserMetadata(userId)); } catch (e) { return toolError(e); }
     });
 
     if (readonly) return;
@@ -26,9 +26,9 @@ export function registerMetadataTools(server: McpServer, client: RemnawaveClient
     });
 
     server.tool('metadata_user_upsert', 'Create or update metadata for a user', {
-        uuid: z.string().describe('User UUID'),
+        userId: z.number().describe('Numeric user id'),
         metadata: z.record(z.unknown()).describe('Metadata key-value pairs'),
-    }, async ({ uuid, metadata }) => {
-        try { return toolResult(await client.upsertUserMetadata(uuid, metadata)); } catch (e) { return toolError(e); }
+    }, async ({ userId, metadata }) => {
+        try { return toolResult(await client.upsertUserMetadata(userId, metadata)); } catch (e) { return toolError(e); }
     });
 }

@@ -353,27 +353,33 @@ export function registerHostTools(server: McpServer, client: RemnawaveClient, re
     );
 
     server.tool(
-        'hosts_bulk_set_inbound',
-        'Bulk set inbound for selected hosts',
+        'hosts_bulk_update',
+        'Bulk update selected hosts. Replaces the removed set-inbound and set-port endpoints.',
         {
-            uuids: z.array(z.string()).describe('Array of host UUIDs'),
-            configProfileUuid: z.string().describe('Config profile UUID'),
-            configProfileInboundUuid: z.string().describe('Inbound UUID'),
+            uuids: z.array(z.string()).min(1).describe('Host UUIDs'),
+            configProfileUuid: z.string().optional().describe('Config profile UUID'),
+            configProfileInboundUuid: z
+                .string()
+                .optional()
+                .describe('Inbound UUID inside that profile'),
+            port: z.number().int().optional().describe('New port'),
         },
-        async (params) => {
-            try { return toolResult(await client.bulkSetHostInbound(params)); } catch (e) { return toolError(e); }
-        },
-    );
-
-    server.tool(
-        'hosts_bulk_set_port',
-        'Bulk set port for selected hosts',
-        {
-            uuids: z.array(z.string()).describe('Array of host UUIDs'),
-            port: z.number().describe('New port number'),
-        },
-        async (params) => {
-            try { return toolResult(await client.bulkSetHostPort(params)); } catch (e) { return toolError(e); }
+        async ({ uuids, configProfileUuid, configProfileInboundUuid, port }) => {
+            try {
+                const body: Record<string, unknown> = { uuids };
+                if (
+                    configProfileUuid !== undefined ||
+                    configProfileInboundUuid !== undefined
+                ) {
+                    body.inbound = { configProfileUuid, configProfileInboundUuid };
+                }
+                if (port !== undefined) {
+                    body.port = port;
+                }
+                return toolResult(await client.bulkUpdateHosts(body));
+            } catch (e) {
+                return toolError(e);
+            }
         },
     );
 }
