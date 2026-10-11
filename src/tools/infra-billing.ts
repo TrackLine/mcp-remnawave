@@ -25,18 +25,18 @@ export function registerInfraBillingTools(server: McpServer, client: RemnawaveCl
     if (readonly) return;
 
     server.tool('billing_provider_create', 'Create a new billing provider', {
-        name: z.string().describe('Provider name'),
-        faviconLink: z.string().optional().describe('Favicon URL'),
-        loginUrl: z.string().optional().describe('Login page URL'),
+        name: z.string().min(2).max(30).describe('Provider name (2-30 characters)'),
+        faviconLink: z.string().url().optional().describe('Favicon URL'),
+        loginUrl: z.string().url().optional().describe('Login page URL'),
     }, async (params) => {
         try { return toolResult(await client.createBillingProvider(params)); } catch (e) { return toolError(e); }
     });
 
     server.tool('billing_provider_update', 'Update a billing provider', {
         uuid: z.string().describe('Provider UUID'),
-        name: z.string().optional().describe('New name'),
-        faviconLink: z.string().optional().describe('New favicon URL'),
-        loginUrl: z.string().optional().describe('New login page URL'),
+        name: z.string().min(2).max(30).optional().describe('New name (2-30 characters)'),
+        faviconLink: z.string().url().nullable().optional().describe('New favicon URL (null to clear)'),
+        loginUrl: z.string().url().nullable().optional().describe('New login page URL (null to clear)'),
     }, async (params) => {
         try { return toolResult(await client.updateBillingProvider(params)); } catch (e) { return toolError(e); }
     });
@@ -78,7 +78,7 @@ export function registerInfraBillingTools(server: McpServer, client: RemnawaveCl
 
     server.tool('billing_history_create', 'Create a billing history entry', {
         providerUuid: z.string().describe('Provider UUID'),
-        amount: z.number().describe('Amount'),
+        amount: z.number().min(0).describe('Amount'),
         billedAt: z.string().describe('Billing date (ISO 8601)'),
     }, async (params) => {
         try { return toolResult(await client.createBillingHistory(params)); } catch (e) { return toolError(e); }
