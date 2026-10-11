@@ -48,11 +48,19 @@ export function registerInfraBillingTools(server: McpServer, client: RemnawaveCl
     });
 
     server.tool('billing_node_create', 'Create a billing node', {
-        nodeUuid: z.string().describe('Node UUID'),
         providerUuid: z.string().describe('Provider UUID'),
-        nextBillingAt: z.string().optional().describe('Next billing date (ISO 8601)'),
-    }, async (params) => {
-        try { return toolResult(await client.createBillingNode(params)); } catch (e) { return toolError(e); }
+        nodeUuid: z.string().nullable().optional().describe('Node UUID (omit for a billing node not linked to a Remnawave node)'),
+        name: z.string().min(1).max(255).nullable().optional().describe('Billing node name'),
+        nextBillingAt: z.string().describe('Next billing date (ISO 8601)'),
+    }, async ({ providerUuid, nodeUuid, name, nextBillingAt }) => {
+        try {
+            return toolResult(await client.createBillingNode({
+                providerUuid,
+                nodeUuid: nodeUuid ?? null,
+                name: name ?? null,
+                nextBillingAt,
+            }));
+        } catch (e) { return toolError(e); }
     });
 
     server.tool('billing_node_update', 'Update a billing node', {
