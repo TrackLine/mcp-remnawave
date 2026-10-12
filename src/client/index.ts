@@ -1,6 +1,26 @@
 import { REST_API } from '@remnawave/backend-contract';
 import { Config } from '../config.js';
 
+function formatValidationErrors(errors: unknown): string | undefined {
+    if (!Array.isArray(errors) || errors.length === 0) {
+        return undefined;
+    }
+    return errors
+        .map((issue) => {
+            const { path, message } = (issue ?? {}) as {
+                path?: unknown;
+                message?: unknown;
+            };
+            if (typeof message !== 'string') {
+                return JSON.stringify(issue);
+            }
+            return Array.isArray(path) && path.length > 0
+                ? `${path.join('.')}: ${message}`
+                : message;
+        })
+        .join('; ');
+}
+
 export class RemnawaveClient {
     private baseUrl: string;
     private headers: Record<string, string>;
@@ -39,10 +59,15 @@ export class RemnawaveClient {
         if (!res.ok) {
             let errorMessage: string;
             try {
-                const errorBody = await res.json();
-                errorMessage =
-                    (errorBody as { message?: string }).message ||
-                    JSON.stringify(errorBody);
+                const errorBody = (await res.json()) as {
+                    message?: string;
+                    errors?: unknown;
+                };
+                errorMessage = errorBody.message || JSON.stringify(errorBody);
+                const details = formatValidationErrors(errorBody.errors);
+                if (details) {
+                    errorMessage += `: ${details}`;
+                }
             } catch {
                 errorMessage = `HTTP ${res.status} ${res.statusText}`;
             }
