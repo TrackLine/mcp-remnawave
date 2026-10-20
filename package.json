@@ -1,36 +1,45 @@
 {
-  "name": "remnawave-mcp",
-  "version": "1.2.0",
-  "description": "MCP server for Remnawave proxy management panel",
-  "type": "module",
-  "bin": {
-    "remnawave-mcp": "dist/index.js"
-  },
-  "main": "dist/index.js",
-  "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
-    "start": "node dist/index.js"
-  },
-  "keywords": [
-    "mcp",
-    "remnawave",
-    "vpn",
-    "proxy",
-    "xray"
-  ],
-  "license": "MIT",
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.1",
-    "@remnawave/backend-contract": "^2.8.26",
-    "zod": "^3.25.76"
-  },
-  "devDependencies": {
-    "@types/node": "^22.0.0",
-    "tsup": "^8.0.0",
-    "typescript": "^5.7.0"
-  },
-  "engines": {
-    "node": ">=22.0.0"
-  }
+    "name": "remnawave-mcp",
+    "version": "1.3.1",
+    "description": "MCP server for Remnawave proxy management panel",
+    "type": "module",
+    "bin": {
+        "remnawave-mcp": "dist/index.js"
+    },
+    "main": "dist/index.js",
+    "scripts": {
+        "build": "tsup",
+        "dev": "tsup --watch",
+        "start": "node dist/index.js",
+        "openapi:v3:generate": "node scripts/generate-v3-operations.mjs",
+        "typecheck": "tsc --noEmit",
+        "format:check": "prettier --check .",
+        "test": "npm run build && node --test",
+        "check": "npm run format:check && npm run typecheck && npm test"
+    },
+    "keywords": [
+        "mcp",
+        "remnawave",
+        "vpn",
+        "proxy",
+        "xray"
+    ],
+    "license": "MIT",
+    "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.30.0",
+        "@remnawave/backend-contract": "2.8.26",
+        "zod": "^3.25.76"
+    },
+    "devDependencies": {
+        "@types/node": "^22.20.2",
+        "prettier": "3.6.2",
+        "tsup": "^8.0.0",
+        "typescript": "^5.7.0"
+    },
+    "engines": {
+        "node": "22.22.3"
+    },
+    "overrides": {
+        "esbuild": "0.28.1"
+    }
 }

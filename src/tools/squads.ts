@@ -3,24 +3,15 @@ import { z } from 'zod';
 import { RemnawaveClient } from '../client/index.js';
 import { toolResult, toolError } from './helpers.js';
 
-export function registerSquadTools(
-    server: McpServer,
-    client: RemnawaveClient,
-    readonly: boolean,
-) {
-    server.tool(
-        'squads_list',
-        'List all internal squads',
-        {},
-        async () => {
-            try {
-                const result = await client.getInternalSquads();
-                return toolResult(result);
-            } catch (e) {
-                return toolError(e);
-            }
-        },
-    );
+export function registerSquadTools(server: McpServer, client: RemnawaveClient, readonly: boolean) {
+    server.tool('squads_list', 'List all internal squads', {}, async () => {
+        try {
+            const result = await client.getInternalSquads();
+            return toolResult(result);
+        } catch (e) {
+            return toolError(e);
+        }
+    });
 
     server.tool(
         'squads_accessible_nodes',
@@ -98,16 +89,11 @@ export function registerSquadTools(
         'Add users to an internal squad',
         {
             squadUuid: z.string().describe('Squad UUID'),
-            userUuids: z
-                .array(z.string())
-                .describe('Array of user UUIDs to add'),
+            userUuids: z.array(z.string()).describe('Array of user UUIDs to add'),
         },
         async ({ squadUuid, userUuids }) => {
             try {
-                const result = await client.addUsersToSquad(
-                    squadUuid,
-                    userUuids,
-                );
+                const result = await client.addUsersToSquad(squadUuid, userUuids);
                 return toolResult(result);
             } catch (e) {
                 return toolError(e);
@@ -120,16 +106,11 @@ export function registerSquadTools(
         'Remove users from an internal squad',
         {
             squadUuid: z.string().describe('Squad UUID'),
-            userUuids: z
-                .array(z.string())
-                .describe('Array of user UUIDs to remove'),
+            userUuids: z.array(z.string()).describe('Array of user UUIDs to remove'),
         },
         async ({ squadUuid, userUuids }) => {
             try {
-                const result = await client.removeUsersFromSquad(
-                    squadUuid,
-                    userUuids,
-                );
+                const result = await client.removeUsersFromSquad(squadUuid, userUuids);
                 return toolResult(result);
             } catch (e) {
                 return toolError(e);

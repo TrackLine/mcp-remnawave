@@ -57,19 +57,11 @@ export function registerAllPrompts(server: McpServer) {
         'traffic_report',
         'Generate a traffic usage report',
         {
-            startDate: z
-                .string()
-                .optional()
-                .describe('Start date (ISO 8601)'),
-            endDate: z
-                .string()
-                .optional()
-                .describe('End date (ISO 8601)'),
+            startDate: z.string().optional().describe('Start date (ISO 8601)'),
+            endDate: z.string().optional().describe('End date (ISO 8601)'),
         },
         async ({ startDate, endDate }) => {
-            const period = startDate && endDate
-                ? `from ${startDate} to ${endDate}`
-                : 'current';
+            const period = startDate && endDate ? `from ${startDate} to ${endDate}` : 'current';
             return {
                 messages: [
                     {

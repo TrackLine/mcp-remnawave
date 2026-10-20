@@ -1,16 +1,12 @@
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { RemnawaveClient } from '../client/index.js';
 
-export function registerAllResources(
-    server: McpServer,
-    client: RemnawaveClient,
-) {
+export function registerAllResources(server: McpServer, client: RemnawaveClient) {
     server.resource(
         'panel-stats',
         'remnawave://stats',
         {
-            description:
-                'Current Remnawave panel statistics (users, nodes, traffic, system)',
+            description: 'Current Remnawave panel statistics (users, nodes, traffic, system)',
             mimeType: 'application/json',
         },
         async () => {

@@ -4,19 +4,14 @@ import { RemnawaveClient } from '../client/index.js';
 import { toolResult, toolError } from './helpers.js';
 
 export function registerNodeTools(server: McpServer, client: RemnawaveClient, readonly: boolean) {
-    server.tool(
-        'nodes_list',
-        'List all Remnawave nodes',
-        {},
-        async () => {
-            try {
-                const result = await client.getNodes();
-                return toolResult(result);
-            } catch (e) {
-                return toolError(e);
-            }
-        },
-    );
+    server.tool('nodes_list', 'List all Remnawave nodes', {}, async () => {
+        try {
+            const result = await client.getNodes();
+            return toolResult(result);
+        } catch (e) {
+            return toolError(e);
+        }
+    });
 
     server.tool(
         'nodes_get',
@@ -34,19 +29,14 @@ export function registerNodeTools(server: McpServer, client: RemnawaveClient, re
         },
     );
 
-    server.tool(
-        'nodes_tags_list',
-        'List all node tags',
-        {},
-        async () => {
-            try {
-                const result = await client.getNodeTags();
-                return toolResult(result);
-            } catch (e) {
-                return toolError(e);
-            }
-        },
-    );
+    server.tool('nodes_tags_list', 'List all node tags', {}, async () => {
+        try {
+            const result = await client.getNodeTags();
+            return toolResult(result);
+        } catch (e) {
+            return toolError(e);
+        }
+    });
 
     if (readonly) return;
 
@@ -57,36 +47,17 @@ export function registerNodeTools(server: McpServer, client: RemnawaveClient, re
             name: z.string().describe('Node name'),
             address: z.string().describe('Node address (IP or hostname)'),
             port: z.number().optional().describe('Node port'),
-            countryCode: z
-                .string()
-                .optional()
-                .describe('Country code (e.g. US, DE, NL)'),
-            isTrafficTrackingActive: z
-                .boolean()
-                .optional()
-                .describe('Enable traffic tracking'),
-            trafficLimitBytes: z
-                .number()
-                .optional()
-                .describe('Traffic limit in bytes'),
-            trafficResetDay: z
-                .number()
-                .optional()
-                .describe('Day of month to reset traffic (1-31)'),
+            countryCode: z.string().optional().describe('Country code (e.g. US, DE, NL)'),
+            isTrafficTrackingActive: z.boolean().optional().describe('Enable traffic tracking'),
+            trafficLimitBytes: z.number().optional().describe('Traffic limit in bytes'),
+            trafficResetDay: z.number().optional().describe('Day of month to reset traffic (1-31)'),
             notifyPercent: z
                 .number()
                 .optional()
                 .describe('Traffic notification threshold percentage'),
-            consumptionMultiplier: z
-                .number()
-                .optional()
-                .describe('Traffic consumption multiplier'),
-            activeConfigProfileUuid: z
-                .string()
-                .describe('Config profile UUID to assign'),
-            activeInbounds: z
-                .array(z.string())
-                .describe('Array of inbound UUIDs to enable'),
+            consumptionMultiplier: z.number().optional().describe('Traffic consumption multiplier'),
+            activeConfigProfileUuid: z.string().describe('Config profile UUID to assign'),
+            activeInbounds: z.array(z.string()).describe('Array of inbound UUIDs to enable'),
         },
         async (params) => {
             try {
@@ -94,23 +65,19 @@ export function registerNodeTools(server: McpServer, client: RemnawaveClient, re
                     name: params.name,
                     address: params.address,
                     configProfile: {
-                        activeConfigProfileUuid:
-                            params.activeConfigProfileUuid,
+                        activeConfigProfileUuid: params.activeConfigProfileUuid,
                         activeInbounds: params.activeInbounds,
                     },
                 };
                 if (params.port !== undefined) body.port = params.port;
-                if (params.countryCode !== undefined)
-                    body.countryCode = params.countryCode;
+                if (params.countryCode !== undefined) body.countryCode = params.countryCode;
                 if (params.isTrafficTrackingActive !== undefined)
-                    body.isTrafficTrackingActive =
-                        params.isTrafficTrackingActive;
+                    body.isTrafficTrackingActive = params.isTrafficTrackingActive;
                 if (params.trafficLimitBytes !== undefined)
                     body.trafficLimitBytes = params.trafficLimitBytes;
                 if (params.trafficResetDay !== undefined)
                     body.trafficResetDay = params.trafficResetDay;
-                if (params.notifyPercent !== undefined)
-                    body.notifyPercent = params.notifyPercent;
+                if (params.notifyPercent !== undefined) body.notifyPercent = params.notifyPercent;
                 if (params.consumptionMultiplier !== undefined)
                     body.consumptionMultiplier = params.consumptionMultiplier;
 
@@ -135,22 +102,10 @@ export function registerNodeTools(server: McpServer, client: RemnawaveClient, re
                 .boolean()
                 .optional()
                 .describe('Enable/disable traffic tracking'),
-            trafficLimitBytes: z
-                .number()
-                .optional()
-                .describe('New traffic limit'),
-            trafficResetDay: z
-                .number()
-                .optional()
-                .describe('New traffic reset day'),
-            notifyPercent: z
-                .number()
-                .optional()
-                .describe('New notification threshold'),
-            consumptionMultiplier: z
-                .number()
-                .optional()
-                .describe('New consumption multiplier'),
+            trafficLimitBytes: z.number().optional().describe('New traffic limit'),
+            trafficResetDay: z.number().optional().describe('New traffic reset day'),
+            notifyPercent: z.number().optional().describe('New notification threshold'),
+            consumptionMultiplier: z.number().optional().describe('New consumption multiplier'),
         },
         async (params) => {
             try {
@@ -229,19 +184,14 @@ export function registerNodeTools(server: McpServer, client: RemnawaveClient, re
         },
     );
 
-    server.tool(
-        'nodes_restart_all',
-        'Restart all nodes',
-        {},
-        async () => {
-            try {
-                const result = await client.restartAllNodes();
-                return toolResult(result);
-            } catch (e) {
-                return toolError(e);
-            }
-        },
-    );
+    server.tool('nodes_restart_all', 'Restart all nodes', {}, async () => {
+        try {
+            const result = await client.restartAllNodes();
+            return toolResult(result);
+        } catch (e) {
+            return toolError(e);
+        }
+    });
 
     server.tool(
         'nodes_reset_traffic',
@@ -264,10 +214,12 @@ export function registerNodeTools(server: McpServer, client: RemnawaveClient, re
         'Reorder nodes by providing an ordered array of node positions',
         {
             nodes: z
-                .array(z.object({
-                    viewPosition: z.number().describe('Sort position (0-based)'),
-                    uuid: z.string().describe('Node UUID'),
-                }))
+                .array(
+                    z.object({
+                        viewPosition: z.number().describe('Sort position (0-based)'),
+                        uuid: z.string().describe('Node UUID'),
+                    }),
+                )
                 .describe('Ordered array of { viewPosition, uuid } objects'),
         },
         async ({ nodes }) => {
@@ -310,7 +262,9 @@ export function registerNodeTools(server: McpServer, client: RemnawaveClient, re
         'Bulk actions on selected nodes (enable/disable/restart/reset traffic)',
         {
             uuids: z.array(z.string()).describe('Array of node UUIDs'),
-            action: z.enum(['ENABLE', 'DISABLE', 'RESTART', 'RESET_TRAFFIC']).describe('Action to perform'),
+            action: z
+                .enum(['ENABLE', 'DISABLE', 'RESTART', 'RESET_TRAFFIC'])
+                .describe('Action to perform'),
         },
         async (params) => {
             try {

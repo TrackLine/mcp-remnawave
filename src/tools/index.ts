@@ -23,7 +23,7 @@ export function registerAllTools(server: McpServer, client: RemnawaveClient, rea
     registerUserTools(server, client, readonly);
     registerNodeTools(server, client, readonly);
     registerHostTools(server, client, readonly);
-    registerSystemTools(server, client);
+    registerSystemTools(server, client, readonly);
     registerSubscriptionTools(server, client);
     registerInboundTools(server, client, readonly);
     registerSquadTools(server, client, readonly);

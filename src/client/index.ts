@@ -4,9 +4,11 @@ import { Config } from '../config.js';
 export class RemnawaveClient {
     private baseUrl: string;
     private headers: Record<string, string>;
+    private requestTimeoutMs: number;
 
     constructor(config: Config) {
         this.baseUrl = config.baseUrl;
+        this.requestTimeoutMs = config.requestTimeoutMs;
         this.headers = {
             Authorization: `Bearer ${config.apiToken}`,
             'Content-Type': 'application/json',
@@ -22,11 +24,7 @@ export class RemnawaveClient {
         }
     }
 
-    private async request<T = unknown>(
-        method: string,
-        path: string,
-        body?: unknown,
-    ): Promise<T> {
+    private async request<T = unknown>(method: string, path: string, body?: unknown): Promise<T> {
         const url = `${this.baseUrl}${path}`;
         const options: RequestInit = {
             method,
@@ -35,20 +33,35 @@ export class RemnawaveClient {
         if (body !== undefined) {
             options.body = JSON.stringify(body);
         }
-        const res = await fetch(url, options);
-        if (!res.ok) {
-            let errorMessage: string;
-            try {
-                const errorBody = await res.json();
-                errorMessage =
-                    (errorBody as { message?: string }).message ||
-                    JSON.stringify(errorBody);
-            } catch {
-                errorMessage = `HTTP ${res.status} ${res.statusText}`;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), this.requestTimeoutMs);
+        options.signal = controller.signal;
+
+        try {
+            const res = await fetch(url, options);
+            if (!res.ok) {
+                let errorMessage: string;
+                try {
+                    const errorBody = await res.json();
+                    errorMessage =
+                        (errorBody as { message?: string }).message || JSON.stringify(errorBody);
+                } catch {
+                    errorMessage = `HTTP ${res.status} ${res.statusText}`;
+                }
+                throw new Error(`Remnawave API error: ${errorMessage}`);
             }
-            throw new Error(`Remnawave API error: ${errorMessage}`);
+            return res.json() as Promise<T>;
+        } catch (error) {
+            if (controller.signal.aborted) {
+                throw new Error(
+                    `Remnawave API request timed out after ${this.requestTimeoutMs}ms`,
+                    { cause: error },
+                );
+            }
+            throw error;
+        } finally {
+            clearTimeout(timeout);
         }
-        return res.json() as Promise<T>;
     }
 
     private async get<T = unknown>(path: string): Promise<T> {
@@ -59,10 +72,7 @@ export class RemnawaveClient {
         return this.request<T>('POST', path, body);
     }
 
-    private async patch<T = unknown>(
-        path: string,
-        body?: unknown,
-    ): Promise<T> {
+    private async patch<T = unknown>(path: string, body?: unknown): Promise<T> {
         return this.request<T>('PATCH', path, body);
     }
 
@@ -77,9 +87,7 @@ export class RemnawaveClient {
     // Users
 
     async getUsers(start = 0, size = 25) {
-        return this.get(
-            `${REST_API.USERS.GET}?start=${start}&size=${size}`,
-        );
+        return this.get(`${REST_API.USERS.GET}?start=${start}&size=${size}`);
     }
 
     async getUserByUuid(uuid: string) {
@@ -291,11 +299,14 @@ export class RemnawaveClient {
     }
 
     async bulkSetHostInbound(params: Record<string, unknown>) {
-        return this.post(REST_API.HOSTS.BULK.SET_INBOUND, params);
+        // These two routes existed in the v2.7.4 contract but were removed
+        // from newer v2 contract packages. Keep the explicit legacy paths so
+        // REMNAWAVE_RELEASE=v2 remains compatible with 2.7.4.
+        return this.post('/api/hosts/bulk/set-inbound', params);
     }
 
     async bulkSetHostPort(params: Record<string, unknown>) {
-        return this.post(REST_API.HOSTS.BULK.SET_PORT, params);
+        return this.post('/api/hosts/bulk/set-port', params);
     }
 
     // System
@@ -339,9 +350,7 @@ export class RemnawaveClient {
     // Subscriptions
 
     async getSubscriptions(start = 0, size = 25) {
-        return this.get(
-            `${REST_API.SUBSCRIPTIONS.GET}?start=${start}&size=${size}`,
-        );
+        return this.get(`${REST_API.SUBSCRIPTIONS.GET}?start=${start}&size=${size}`);
     }
 
     async getSubscriptionByUuid(uuid: string) {
@@ -441,17 +450,13 @@ export class RemnawaveClient {
     }
 
     async addUsersToSquad(squadUuid: string, userUuids: string[]) {
-        return this.post(
-            REST_API.INTERNAL_SQUADS.BULK_ACTIONS.ADD_USERS(squadUuid),
-            { userUuids },
-        );
+        return this.post(REST_API.INTERNAL_SQUADS.BULK_ACTIONS.ADD_USERS(squadUuid), { userUuids });
     }
 
     async removeUsersFromSquad(squadUuid: string, userUuids: string[]) {
-        return this.post(
-            REST_API.INTERNAL_SQUADS.BULK_ACTIONS.REMOVE_USERS(squadUuid),
-            { userUuids },
-        );
+        return this.post(REST_API.INTERNAL_SQUADS.BULK_ACTIONS.REMOVE_USERS(squadUuid), {
+            userUuids,
+        });
     }
 
     // HWID
@@ -620,17 +625,13 @@ export class RemnawaveClient {
     }
 
     async addUsersToExternalSquad(squadUuid: string, userUuids: string[]) {
-        return this.post(
-            REST_API.EXTERNAL_SQUADS.BULK_ACTIONS.ADD_USERS(squadUuid),
-            { userUuids },
-        );
+        return this.post(REST_API.EXTERNAL_SQUADS.BULK_ACTIONS.ADD_USERS(squadUuid), { userUuids });
     }
 
     async removeUsersFromExternalSquad(squadUuid: string, userUuids: string[]) {
-        return this.post(
-            REST_API.EXTERNAL_SQUADS.BULK_ACTIONS.REMOVE_USERS(squadUuid),
-            { userUuids },
-        );
+        return this.post(REST_API.EXTERNAL_SQUADS.BULK_ACTIONS.REMOVE_USERS(squadUuid), {
+            userUuids,
+        });
     }
 
     async reorderExternalSquads(params: Record<string, unknown>) {

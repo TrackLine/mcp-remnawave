@@ -3,10 +3,7 @@ import { z } from 'zod';
 import { RemnawaveClient } from '../client/index.js';
 import { toolResult, toolError } from './helpers.js';
 
-export function registerSubscriptionTools(
-    server: McpServer,
-    client: RemnawaveClient,
-) {
+export function registerSubscriptionTools(server: McpServer, client: RemnawaveClient) {
     server.tool(
         'subscriptions_list',
         'List all subscriptions with pagination',
@@ -48,8 +45,7 @@ export function registerSubscriptionTools(
         },
         async ({ username }) => {
             try {
-                const result =
-                    await client.getSubscriptionByUsername(username);
+                const result = await client.getSubscriptionByUsername(username);
                 return toolResult(result);
             } catch (e) {
                 return toolError(e);
@@ -65,8 +61,7 @@ export function registerSubscriptionTools(
         },
         async ({ shortUuid }) => {
             try {
-                const result =
-                    await client.getSubscriptionByShortUuid(shortUuid);
+                const result = await client.getSubscriptionByShortUuid(shortUuid);
                 return toolResult(result);
             } catch (e) {
                 return toolError(e);
@@ -82,8 +77,7 @@ export function registerSubscriptionTools(
         },
         async ({ shortUuid }) => {
             try {
-                const result =
-                    await client.getSubscriptionInfo(shortUuid);
+                const result = await client.getSubscriptionInfo(shortUuid);
                 return toolResult(result);
             } catch (e) {
                 return toolError(e);
@@ -96,7 +90,11 @@ export function registerSubscriptionTools(
         'Get raw subscription config by short UUID',
         { shortUuid: z.string().describe('Short UUID') },
         async ({ shortUuid }) => {
-            try { return toolResult(await client.getSubscriptionByShortUuidRaw(shortUuid)); } catch (e) { return toolError(e); }
+            try {
+                return toolResult(await client.getSubscriptionByShortUuidRaw(shortUuid));
+            } catch (e) {
+                return toolError(e);
+            }
         },
     );
 
@@ -105,7 +103,11 @@ export function registerSubscriptionTools(
         'Get subscription page configuration',
         { shortUuid: z.string().describe('Short UUID') },
         async ({ shortUuid }) => {
-            try { return toolResult(await client.getSubscriptionSubpageConfig(shortUuid)); } catch (e) { return toolError(e); }
+            try {
+                return toolResult(await client.getSubscriptionSubpageConfig(shortUuid));
+            } catch (e) {
+                return toolError(e);
+            }
         },
     );
 
@@ -114,7 +116,11 @@ export function registerSubscriptionTools(
         'Get connection keys for a subscription',
         { uuid: z.string().describe('Subscription UUID') },
         async ({ uuid }) => {
-            try { return toolResult(await client.getConnectionKeysByUuid(uuid)); } catch (e) { return toolError(e); }
+            try {
+                return toolResult(await client.getConnectionKeysByUuid(uuid));
+            } catch (e) {
+                return toolError(e);
+            }
         },
     );
 
@@ -123,7 +129,11 @@ export function registerSubscriptionTools(
         'List subscription request history',
         {},
         async () => {
-            try { return toolResult(await client.getSubscriptionRequestHistory()); } catch (e) { return toolError(e); }
+            try {
+                return toolResult(await client.getSubscriptionRequestHistory());
+            } catch (e) {
+                return toolError(e);
+            }
         },
     );
 
@@ -132,7 +142,11 @@ export function registerSubscriptionTools(
         'Get subscription request history statistics',
         {},
         async () => {
-            try { return toolResult(await client.getSubscriptionRequestHistoryStats()); } catch (e) { return toolError(e); }
+            try {
+                return toolResult(await client.getSubscriptionRequestHistoryStats());
+            } catch (e) {
+                return toolError(e);
+            }
         },
     );
 }

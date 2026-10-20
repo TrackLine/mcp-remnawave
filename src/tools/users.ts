@@ -133,19 +133,16 @@ export function registerUserTools(server: McpServer, client: RemnawaveClient, re
         },
     );
 
-    server.tool(
-        'users_tags_list',
-        'List all user tags',
-        {},
-        async () => {
-            try {
-                const result = await client.getUserTags();
-                return toolResult(result);
-            } catch (e) {
-                return toolError(e);
-            }
-        },
-    );
+    server.tool('users_tags_list', 'List all user tags', {}, async () => {
+        try {
+            const result = await client.getUserTags();
+            return toolResult(result);
+        } catch (e) {
+            return toolError(e);
+        }
+    });
+
+    if (readonly) return;
 
     server.tool(
         'users_resolve',
@@ -166,8 +163,6 @@ export function registerUserTools(server: McpServer, client: RemnawaveClient, re
         },
     );
 
-    if (readonly) return;
-
     server.tool(
         'users_create',
         'Create a new VPN user in Remnawave',
@@ -182,18 +177,12 @@ export function registerUserTools(server: McpServer, client: RemnawaveClient, re
                 .enum(['NO_RESET', 'DAY', 'WEEK', 'MONTH', 'MONTH_ROLLING'])
                 .optional()
                 .describe('Traffic reset period'),
-            status: z
-                .enum(['ACTIVE', 'DISABLED'])
-                .optional()
-                .describe('Initial user status'),
+            status: z.enum(['ACTIVE', 'DISABLED']).optional().describe('Initial user status'),
             description: z.string().optional().describe('User description'),
             tag: z.string().optional().describe('User tag for grouping'),
             telegramId: z.number().optional().describe('Telegram user ID'),
             email: z.string().optional().describe('User email'),
-            hwidDeviceLimit: z
-                .number()
-                .optional()
-                .describe('Max number of HWID devices'),
+            hwidDeviceLimit: z.number().optional().describe('Max number of HWID devices'),
             activeInternalSquads: z
                 .array(z.string())
                 .optional()
@@ -217,34 +206,19 @@ export function registerUserTools(server: McpServer, client: RemnawaveClient, re
         {
             uuid: z.string().describe('User UUID to update'),
             username: z.string().optional().describe('New username'),
-            expireAt: z
-                .string()
-                .optional()
-                .describe('New expiration date (ISO 8601)'),
-            trafficLimitBytes: z
-                .number()
-                .optional()
-                .describe('New traffic limit in bytes'),
+            expireAt: z.string().optional().describe('New expiration date (ISO 8601)'),
+            trafficLimitBytes: z.number().optional().describe('New traffic limit in bytes'),
             trafficLimitStrategy: z
                 .enum(['NO_RESET', 'DAY', 'WEEK', 'MONTH', 'MONTH_ROLLING'])
                 .optional()
                 .describe('Traffic reset period'),
-            status: z
-                .enum(['ACTIVE', 'DISABLED'])
-                .optional()
-                .describe('User status'),
+            status: z.enum(['ACTIVE', 'DISABLED']).optional().describe('User status'),
             description: z.string().optional().describe('User description'),
             tag: z.string().optional().describe('User tag'),
             telegramId: z.number().optional().describe('Telegram user ID'),
             email: z.string().optional().describe('User email'),
-            hwidDeviceLimit: z
-                .number()
-                .optional()
-                .describe('Max HWID devices'),
-            activeInternalSquads: z
-                .array(z.string())
-                .optional()
-                .describe('Internal squad UUIDs'),
+            hwidDeviceLimit: z.number().optional().describe('Max HWID devices'),
+            activeInternalSquads: z.array(z.string()).optional().describe('Internal squad UUIDs'),
             externalSquadUuid: z.string().optional().describe('External squad UUID'),
         },
         async (params) => {
@@ -341,7 +315,9 @@ export function registerUserTools(server: McpServer, client: RemnawaveClient, re
         'users_bulk_delete_by_status',
         'Bulk delete users by status',
         {
-            status: z.enum(['ACTIVE', 'DISABLED', 'LIMITED', 'EXPIRED']).describe('User status to delete'),
+            status: z
+                .enum(['ACTIVE', 'DISABLED', 'LIMITED', 'EXPIRED'])
+                .describe('User status to delete'),
         },
         async (params) => {
             try {
@@ -358,10 +334,16 @@ export function registerUserTools(server: McpServer, client: RemnawaveClient, re
         'Bulk update selected users',
         {
             uuids: z.array(z.string()).describe('Array of user UUIDs to update'),
-            status: z.enum(['ACTIVE', 'DISABLED', 'LIMITED', 'EXPIRED']).optional().describe('New status'),
+            status: z
+                .enum(['ACTIVE', 'DISABLED', 'LIMITED', 'EXPIRED'])
+                .optional()
+                .describe('New status'),
             expireAt: z.string().optional().describe('New expiration date (ISO 8601)'),
             trafficLimitBytes: z.number().optional().describe('New traffic limit'),
-            trafficLimitStrategy: z.enum(['NO_RESET', 'DAY', 'WEEK', 'MONTH', 'MONTH_ROLLING']).optional().describe('Traffic reset period'),
+            trafficLimitStrategy: z
+                .enum(['NO_RESET', 'DAY', 'WEEK', 'MONTH', 'MONTH_ROLLING'])
+                .optional()
+                .describe('Traffic reset period'),
             description: z.string().optional().describe('User description'),
             telegramId: z.number().optional().describe('Telegram user ID'),
             email: z.string().optional().describe('User email'),
@@ -466,10 +448,16 @@ export function registerUserTools(server: McpServer, client: RemnawaveClient, re
         'users_bulk_all_update',
         'Update ALL users at once',
         {
-            status: z.enum(['ACTIVE', 'DISABLED', 'LIMITED', 'EXPIRED']).optional().describe('New status for all'),
+            status: z
+                .enum(['ACTIVE', 'DISABLED', 'LIMITED', 'EXPIRED'])
+                .optional()
+                .describe('New status for all'),
             expireAt: z.string().optional().describe('New expiration date for all'),
             trafficLimitBytes: z.number().optional().describe('Traffic limit in bytes'),
-            trafficLimitStrategy: z.enum(['NO_RESET', 'DAY', 'WEEK', 'MONTH', 'MONTH_ROLLING']).optional().describe('Traffic reset period'),
+            trafficLimitStrategy: z
+                .enum(['NO_RESET', 'DAY', 'WEEK', 'MONTH', 'MONTH_ROLLING'])
+                .optional()
+                .describe('Traffic reset period'),
             description: z.string().optional().describe('User description'),
             telegramId: z.number().optional().describe('Telegram user ID'),
             email: z.string().optional().describe('User email'),

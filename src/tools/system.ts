@@ -3,10 +3,7 @@ import { z } from 'zod';
 import { RemnawaveClient } from '../client/index.js';
 import { toolResult, toolError } from './helpers.js';
 
-export function registerSystemTools(
-    server: McpServer,
-    client: RemnawaveClient,
-) {
+export function registerSystemTools(server: McpServer, client: RemnawaveClient, readonly: boolean) {
     server.tool(
         'system_stats',
         'Get overall Remnawave panel statistics (users, nodes, traffic, memory, CPU)',
@@ -21,61 +18,41 @@ export function registerSystemTools(
         },
     );
 
-    server.tool(
-        'system_bandwidth_stats',
-        'Get bandwidth statistics',
-        {},
-        async () => {
-            try {
-                const result = await client.getBandwidthStats();
-                return toolResult(result);
-            } catch (e) {
-                return toolError(e);
-            }
-        },
-    );
+    server.tool('system_bandwidth_stats', 'Get bandwidth statistics', {}, async () => {
+        try {
+            const result = await client.getBandwidthStats();
+            return toolResult(result);
+        } catch (e) {
+            return toolError(e);
+        }
+    });
 
-    server.tool(
-        'system_nodes_metrics',
-        'Get detailed node metrics',
-        {},
-        async () => {
-            try {
-                const result = await client.getNodesMetrics();
-                return toolResult(result);
-            } catch (e) {
-                return toolError(e);
-            }
-        },
-    );
+    server.tool('system_nodes_metrics', 'Get detailed node metrics', {}, async () => {
+        try {
+            const result = await client.getNodesMetrics();
+            return toolResult(result);
+        } catch (e) {
+            return toolError(e);
+        }
+    });
 
-    server.tool(
-        'system_nodes_statistics',
-        'Get node statistics',
-        {},
-        async () => {
-            try {
-                const result = await client.getNodesStatistics();
-                return toolResult(result);
-            } catch (e) {
-                return toolError(e);
-            }
-        },
-    );
+    server.tool('system_nodes_statistics', 'Get node statistics', {}, async () => {
+        try {
+            const result = await client.getNodesStatistics();
+            return toolResult(result);
+        } catch (e) {
+            return toolError(e);
+        }
+    });
 
-    server.tool(
-        'system_health',
-        'Check Remnawave panel health status',
-        {},
-        async () => {
-            try {
-                const result = await client.getHealth();
-                return toolResult(result);
-            } catch (e) {
-                return toolError(e);
-            }
-        },
-    );
+    server.tool('system_health', 'Check Remnawave panel health status', {}, async () => {
+        try {
+            const result = await client.getHealth();
+            return toolResult(result);
+        } catch (e) {
+            return toolError(e);
+        }
+    });
 
     server.tool(
         'system_metadata',
@@ -119,33 +96,32 @@ export function registerSystemTools(
         },
     );
 
-    server.tool(
-        'system_stats_recap',
-        'Get system statistics recap',
-        {},
-        async () => {
-            try {
-                const result = await client.getStatsRecap();
-                return toolResult(result);
-            } catch (e) {
-                return toolError(e);
-            }
-        },
-    );
+    server.tool('system_stats_recap', 'Get system statistics recap', {}, async () => {
+        try {
+            const result = await client.getStatsRecap();
+            return toolResult(result);
+        } catch (e) {
+            return toolError(e);
+        }
+    });
 
-    server.tool(
-        'system_srr_matcher',
-        'Test subscription request routing rules',
-        {
-            responseRules: z.record(z.unknown()).describe('Response rules configuration object with version and rules array'),
-        },
-        async (params) => {
-            try {
-                const result = await client.testSrrMatcher(params);
-                return toolResult(result);
-            } catch (e) {
-                return toolError(e);
-            }
-        },
-    );
+    if (!readonly) {
+        server.tool(
+            'system_srr_matcher',
+            'Test subscription request routing rules',
+            {
+                responseRules: z
+                    .record(z.unknown())
+                    .describe('Response rules configuration object with version and rules array'),
+            },
+            async (params) => {
+                try {
+                    const result = await client.testSrrMatcher(params);
+                    return toolResult(result);
+                } catch (e) {
+                    return toolError(e);
+                }
+            },
+        );
+    }
 }
