@@ -4,10 +4,10 @@ import { RemnawaveClient } from '../client/index.js';
 import { toolResult, toolError } from './helpers.js';
 
 export function registerIpControlTools(server: McpServer, client: RemnawaveClient, readonly: boolean) {
-    server.tool('ip_control_fetch_ips', 'Fetch active IPs for a user (async job)', {
-        uuid: z.string().describe('User UUID'),
-    }, async ({ uuid }) => {
-        try { return toolResult(await client.fetchIps(uuid)); } catch (e) { return toolError(e); }
+    server.tool('ip_control_fetch_ips', 'Fetch active connections/IPs for a user (async job)', {
+        userId: z.number().int().describe('User numeric ID'),
+    }, async ({ userId }) => {
+        try { return toolResult(await client.fetchIps(userId)); } catch (e) { return toolError(e); }
     });
 
     server.tool('ip_control_get_fetch_ips_result', 'Get result of an IP fetch job', {
@@ -30,15 +30,15 @@ export function registerIpControlTools(server: McpServer, client: RemnawaveClien
 
     if (readonly) return;
 
-    server.tool('ip_control_drop_connections', 'Drop active connections by IP or user UUID on specific/all nodes', {
+    server.tool('ip_control_drop_connections', 'Drop active connections by IP or numeric user ID on specific/all nodes', {
         dropBy: z.union([
             z.object({
                 by: z.literal('ipAddresses'),
                 ipAddresses: z.array(z.string()).min(1).describe('Array of IP addresses'),
             }),
             z.object({
-                by: z.literal('userUuids'),
-                userUuids: z.array(z.string()).min(1).describe('Array of user UUIDs'),
+                by: z.literal('userIds'),
+                userIds: z.array(z.number().int()).min(1).describe('Array of numeric user IDs'),
             }),
         ]).describe('What to drop connections by'),
         targetNodes: z.union([

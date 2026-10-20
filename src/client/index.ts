@@ -1,6 +1,26 @@
 import { REST_API } from '@remnawave/backend-contract';
 import { Config } from '../config.js';
 
+function formatValidationErrors(errors: unknown): string | undefined {
+    if (!Array.isArray(errors) || errors.length === 0) {
+        return undefined;
+    }
+    return errors
+        .map((issue) => {
+            const { path, message } = (issue ?? {}) as {
+                path?: unknown;
+                message?: unknown;
+            };
+            if (typeof message !== 'string') {
+                return JSON.stringify(issue);
+            }
+            return Array.isArray(path) && path.length > 0
+                ? `${path.join('.')}: ${message}`
+                : message;
+        })
+        .join('; ');
+}
+
 export class RemnawaveClient {
     private baseUrl: string;
     private headers: Record<string, string>;
@@ -39,16 +59,29 @@ export class RemnawaveClient {
         if (!res.ok) {
             let errorMessage: string;
             try {
-                const errorBody = await res.json();
-                errorMessage =
-                    (errorBody as { message?: string }).message ||
-                    JSON.stringify(errorBody);
+                const errorBody = (await res.json()) as {
+                    message?: string;
+                    errors?: unknown;
+                };
+                errorMessage = errorBody.message || JSON.stringify(errorBody);
+                const details = formatValidationErrors(errorBody.errors);
+                if (details) {
+                    errorMessage += `: ${details}`;
+                }
             } catch {
                 errorMessage = `HTTP ${res.status} ${res.statusText}`;
             }
             throw new Error(`Remnawave API error: ${errorMessage}`);
         }
-        return res.json() as Promise<T>;
+        const text = await res.text();
+        if (!text.trim()) {
+            return { success: true } as T;
+        }
+        try {
+            return JSON.parse(text) as T;
+        } catch {
+            return { success: true, response: text } as T;
+        }
     }
 
     private async get<T = unknown>(path: string): Promise<T> {
@@ -82,8 +115,8 @@ export class RemnawaveClient {
         );
     }
 
-    async getUserByUuid(uuid: string) {
-        return this.get(REST_API.USERS.GET_BY_UUID(uuid));
+    async getUserById(id: number) {
+        return this.get(REST_API.USERS.GET_BY_ID(String(id)));
     }
 
     async getUserByUsername(username: string) {
@@ -94,24 +127,8 @@ export class RemnawaveClient {
         return this.get(REST_API.USERS.GET_BY.SHORT_UUID(shortUuid));
     }
 
-    async getUserByTelegramId(telegramId: string) {
-        return this.get(REST_API.USERS.GET_BY.TELEGRAM_ID(telegramId));
-    }
-
-    async getUserByEmail(email: string) {
-        return this.get(REST_API.USERS.GET_BY.EMAIL(email));
-    }
-
-    async getUserByTag(tag: string) {
-        return this.get(REST_API.USERS.GET_BY.TAG(tag));
-    }
-
-    async getUserById(id: string) {
-        return this.get(REST_API.USERS.GET_BY.ID(id));
-    }
-
-    async getUserBySubscriptionUuid(subscriptionUuid: string) {
-        return this.get(REST_API.USERS.GET_BY.SUBSCRIPTION_UUID(subscriptionUuid));
+    async getUserAccessibleNodes(id: number) {
+        return this.get(REST_API.USERS.ACCESSIBLE_NODES(String(id)));
     }
 
     async getUserTags() {
@@ -130,24 +147,24 @@ export class RemnawaveClient {
         return this.patch(REST_API.USERS.UPDATE, params);
     }
 
-    async deleteUser(uuid: string) {
-        return this.delete(REST_API.USERS.DELETE(uuid));
+    async deleteUser(id: number) {
+        return this.delete(REST_API.USERS.DELETE(String(id)));
     }
 
-    async enableUser(uuid: string) {
-        return this.post(REST_API.USERS.ACTIONS.ENABLE(uuid));
+    async enableUser(id: number) {
+        return this.post(REST_API.USERS.ACTIONS.ENABLE(String(id)));
     }
 
-    async disableUser(uuid: string) {
-        return this.post(REST_API.USERS.ACTIONS.DISABLE(uuid));
+    async disableUser(id: number) {
+        return this.post(REST_API.USERS.ACTIONS.DISABLE(String(id)));
     }
 
-    async revokeUserSubscription(uuid: string) {
-        return this.post(REST_API.USERS.ACTIONS.REVOKE_SUBSCRIPTION(uuid));
+    async revokeUserSubscription(id: number) {
+        return this.post(REST_API.USERS.ACTIONS.REVOKE_SUBSCRIPTION(String(id)));
     }
 
-    async resetUserTraffic(uuid: string) {
-        return this.post(REST_API.USERS.ACTIONS.RESET_TRAFFIC(uuid));
+    async resetUserTraffic(id: number) {
+        return this.post(REST_API.USERS.ACTIONS.RESET_TRAFFIC(String(id)));
     }
 
     async bulkDeleteUsersByStatus(params: Record<string, unknown>) {
@@ -224,12 +241,12 @@ export class RemnawaveClient {
         return this.post(REST_API.NODES.ACTIONS.DISABLE(uuid));
     }
 
-    async restartNode(uuid: string) {
-        return this.post(REST_API.NODES.ACTIONS.RESTART(uuid));
+    async restartNode(uuid: string, forceRestart = false) {
+        return this.post(REST_API.NODES.ACTIONS.RESTART(uuid), { forceRestart });
     }
 
-    async restartAllNodes() {
-        return this.post(REST_API.NODES.ACTIONS.RESTART_ALL);
+    async restartAllNodes(forceRestart = false) {
+        return this.post(REST_API.NODES.ACTIONS.RESTART_ALL, { forceRestart });
     }
 
     async resetNodeTraffic(uuid: string) {
@@ -290,12 +307,12 @@ export class RemnawaveClient {
         return this.post(REST_API.HOSTS.BULK.DELETE_HOSTS, params);
     }
 
-    async bulkSetHostInbound(params: Record<string, unknown>) {
-        return this.post(REST_API.HOSTS.BULK.SET_INBOUND, params);
+    async bulkUpdateHosts(params: Record<string, unknown>) {
+        return this.patch(REST_API.HOSTS.BULK.UPDATE, params);
     }
 
-    async bulkSetHostPort(params: Record<string, unknown>) {
-        return this.post(REST_API.HOSTS.BULK.SET_PORT, params);
+    async reorderHosts(params: Record<string, unknown>) {
+        return this.post(REST_API.HOSTS.ACTIONS.REORDER, params);
     }
 
     // System
@@ -344,8 +361,8 @@ export class RemnawaveClient {
         );
     }
 
-    async getSubscriptionByUuid(uuid: string) {
-        return this.get(REST_API.SUBSCRIPTIONS.GET_BY.UUID(uuid));
+    async getSubscriptionByUserId(id: number) {
+        return this.get(REST_API.SUBSCRIPTIONS.GET_BY.ID(String(id)));
     }
 
     async getSubscriptionByUsername(username: string) {
@@ -364,8 +381,8 @@ export class RemnawaveClient {
         return this.get(REST_API.SUBSCRIPTIONS.SUBPAGE.GET_CONFIG(shortUuid));
     }
 
-    async getConnectionKeysByUuid(uuid: string) {
-        return this.get(REST_API.SUBSCRIPTIONS.GET_CONNECTION_KEYS_BY_UUID(uuid));
+    async getConnectionKeysByUserId(id: number) {
+        return this.get(REST_API.SUBSCRIPTIONS.GET_CONNECTION_KEYS_BY_USER_ID(String(id)));
     }
 
     async getSubscriptionInfo(shortUuid: string) {
@@ -440,24 +457,33 @@ export class RemnawaveClient {
         return this.delete(REST_API.INTERNAL_SQUADS.DELETE(uuid));
     }
 
-    async addUsersToSquad(squadUuid: string, userUuids: string[]) {
+    async addUsersToSquad(squadUuid: string, userIds: number[]) {
         return this.post(
-            REST_API.INTERNAL_SQUADS.BULK_ACTIONS.ADD_USERS(squadUuid),
-            { userUuids },
+            REST_API.INTERNAL_SQUADS.BULK_ACTIONS.ADD_MANY_USERS(squadUuid),
+            { userIds },
         );
     }
 
-    async removeUsersFromSquad(squadUuid: string, userUuids: string[]) {
-        return this.post(
-            REST_API.INTERNAL_SQUADS.BULK_ACTIONS.REMOVE_USERS(squadUuid),
-            { userUuids },
+    async removeUsersFromSquad(squadUuid: string, userIds: number[]) {
+        return this.request(
+            'DELETE',
+            REST_API.INTERNAL_SQUADS.BULK_ACTIONS.REMOVE_MANY_USERS(squadUuid),
+            { userIds },
         );
+    }
+
+    async addAllUsersToSquad(squadUuid: string) {
+        return this.post(REST_API.INTERNAL_SQUADS.BULK_ACTIONS.ADD_USERS(squadUuid));
+    }
+
+    async removeAllUsersFromSquad(squadUuid: string) {
+        return this.delete(REST_API.INTERNAL_SQUADS.BULK_ACTIONS.REMOVE_USERS(squadUuid));
     }
 
     // HWID
 
-    async getUserHwidDevices(userUuid: string) {
-        return this.get(REST_API.HWID.GET_USER_HWID_DEVICES(userUuid));
+    async getUserHwidDevices(userId: number) {
+        return this.get(REST_API.HWID.GET_USER_HWID_DEVICES(String(userId)));
     }
 
     async getAllHwidDevices() {
@@ -476,16 +502,16 @@ export class RemnawaveClient {
         return this.post(REST_API.HWID.CREATE_USER_HWID_DEVICE, params);
     }
 
-    async deleteHwidDevice(userUuid: string, hwid: string) {
+    async deleteHwidDevice(userId: number, hwid: string) {
         return this.post(REST_API.HWID.DELETE_USER_HWID_DEVICE, {
-            userUuid,
+            userId,
             hwid,
         });
     }
 
-    async deleteAllUserHwidDevices(userUuid: string) {
+    async deleteAllUserHwidDevices(userId: number) {
         return this.post(REST_API.HWID.DELETE_ALL_USER_HWID_DEVICES, {
-            userUuid,
+            userId,
         });
     }
 
@@ -499,8 +525,8 @@ export class RemnawaveClient {
         return this.get(REST_API.BANDWIDTH_STATS.NODES.GET_REALTIME);
     }
 
-    async getUserBandwidthByUuid(uuid: string) {
-        return this.get(REST_API.BANDWIDTH_STATS.USERS.GET_BY_UUID(uuid));
+    async getUserBandwidthById(id: number) {
+        return this.get(REST_API.BANDWIDTH_STATS.USERS.GET_BY_ID(String(id)));
     }
 
     // Auth
@@ -619,18 +645,12 @@ export class RemnawaveClient {
         return this.delete(REST_API.EXTERNAL_SQUADS.DELETE(uuid));
     }
 
-    async addUsersToExternalSquad(squadUuid: string, userUuids: string[]) {
-        return this.post(
-            REST_API.EXTERNAL_SQUADS.BULK_ACTIONS.ADD_USERS(squadUuid),
-            { userUuids },
-        );
+    async addAllUsersToExternalSquad(squadUuid: string) {
+        return this.post(REST_API.EXTERNAL_SQUADS.BULK_ACTIONS.ADD_USERS(squadUuid));
     }
 
-    async removeUsersFromExternalSquad(squadUuid: string, userUuids: string[]) {
-        return this.post(
-            REST_API.EXTERNAL_SQUADS.BULK_ACTIONS.REMOVE_USERS(squadUuid),
-            { userUuids },
-        );
+    async removeAllUsersFromExternalSquad(squadUuid: string) {
+        return this.delete(REST_API.EXTERNAL_SQUADS.BULK_ACTIONS.REMOVE_USERS(squadUuid));
     }
 
     async reorderExternalSquads(params: Record<string, unknown>) {
@@ -645,6 +665,42 @@ export class RemnawaveClient {
 
     async updateSettings(params: Record<string, unknown>) {
         return this.patch(REST_API.REMNAAWAVE_SETTINGS.UPDATE, params);
+    }
+
+    // Subscription Templates
+
+    async getSubscriptionTemplates() {
+        return this.get(REST_API.SUBSCRIPTION_TEMPLATE.GET_ALL);
+    }
+
+    async getSubscriptionTemplate(uuid: string) {
+        return this.get(REST_API.SUBSCRIPTION_TEMPLATE.GET(uuid));
+    }
+
+    async createSubscriptionTemplate(params: Record<string, unknown>) {
+        return this.post(REST_API.SUBSCRIPTION_TEMPLATE.CREATE, params);
+    }
+
+    async updateSubscriptionTemplate(params: Record<string, unknown>) {
+        return this.patch(REST_API.SUBSCRIPTION_TEMPLATE.UPDATE, params);
+    }
+
+    async deleteSubscriptionTemplate(uuid: string) {
+        return this.delete(REST_API.SUBSCRIPTION_TEMPLATE.DELETE(uuid));
+    }
+
+    async reorderSubscriptionTemplates(params: Record<string, unknown>) {
+        return this.post(REST_API.SUBSCRIPTION_TEMPLATE.ACTIONS.REORDER, params);
+    }
+
+    // Subscription Settings (response rules, custom remarks, headers, HWID)
+
+    async getSubscriptionSettings() {
+        return this.get(REST_API.SUBSCRIPTION_SETTINGS.GET);
+    }
+
+    async updateSubscriptionSettings(params: Record<string, unknown>) {
+        return this.patch(REST_API.SUBSCRIPTION_SETTINGS.UPDATE, params);
     }
 
     // Subscription Page Configs
@@ -723,26 +779,26 @@ export class RemnawaveClient {
         return this.post(REST_API.NODE_PLUGINS.TORRENT_BLOCKER.TRUNCATE_REPORTS);
     }
 
-    // IP Control
+    // Connections (formerly IP Control)
 
-    async fetchIps(uuid: string) {
-        return this.post(REST_API.IP_CONTROL.FETCH_IPS(uuid));
+    async fetchIps(userId: number) {
+        return this.post(REST_API.CONNECTIONS.CONNECTIONS_BY_USER(String(userId)));
     }
 
     async getFetchIpsResult(jobId: string) {
-        return this.get(REST_API.IP_CONTROL.GET_FETCH_IPS_RESULT(jobId));
+        return this.get(REST_API.CONNECTIONS.CONNECTIONS_BY_USER_RESULT(jobId));
     }
 
     async dropConnections(params: Record<string, unknown>) {
-        return this.post(REST_API.IP_CONTROL.DROP_CONNECTIONS, params);
+        return this.post(REST_API.CONNECTIONS.DROP_CONNECTIONS, params);
     }
 
     async fetchUsersIps(nodeUuid: string) {
-        return this.post(REST_API.IP_CONTROL.FETCH_USERS_IPS(nodeUuid));
+        return this.post(REST_API.CONNECTIONS.CONNECTIONS_BY_NODE(nodeUuid));
     }
 
     async getFetchUsersIpsResult(jobId: string) {
-        return this.get(REST_API.IP_CONTROL.GET_FETCH_USERS_IPS_RESULT(jobId));
+        return this.get(REST_API.CONNECTIONS.CONNECTIONS_BY_NODE_RESULT(jobId));
     }
 
     // Metadata

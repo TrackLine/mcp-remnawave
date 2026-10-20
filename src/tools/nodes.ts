@@ -50,71 +50,101 @@ export function registerNodeTools(server: McpServer, client: RemnawaveClient, re
 
     if (readonly) return;
 
+    const nodeFields = {
+        port: z.number().int().min(1).max(65535).optional().describe('Node port'),
+        countryCode: z
+            .string()
+            .max(2)
+            .optional()
+            .describe('Country code (e.g. US, DE, NL)'),
+        isTrafficTrackingActive: z
+            .boolean()
+            .optional()
+            .describe('Enable traffic tracking'),
+        trafficLimitBytes: z
+            .number()
+            .min(0)
+            .optional()
+            .describe('Traffic limit in bytes'),
+        trafficResetDay: z
+            .number()
+            .int()
+            .min(1)
+            .max(31)
+            .optional()
+            .describe('Day of month to reset traffic (1-31)'),
+        notifyPercent: z
+            .number()
+            .int()
+            .min(0)
+            .max(100)
+            .optional()
+            .describe('Traffic notification threshold percentage'),
+        consumptionMultiplier: z
+            .number()
+            .min(0)
+            .max(100)
+            .optional()
+            .describe('Multiplier applied to user traffic consumed on this node'),
+        nodeConsumptionMultiplier: z
+            .number()
+            .min(0)
+            .max(100)
+            .optional()
+            .describe('Multiplier applied to the node\'s own traffic counter'),
+        proxyUrl: z
+            .string()
+            .nullable()
+            .optional()
+            .describe('Outbound proxy for panel-to-node connection, socks5://[user:pass@]host:port (null to clear)'),
+        providerUuid: z
+            .string()
+            .nullable()
+            .optional()
+            .describe('Infra billing provider UUID (null to clear)'),
+        tags: z
+            .array(z.string())
+            .max(10)
+            .optional()
+            .describe('Node tags (uppercase letters, digits, _ and :; max 10). Replaces existing tags'),
+        activePluginUuid: z
+            .string()
+            .nullable()
+            .optional()
+            .describe('Active node plugin UUID (null to clear)'),
+        integrationUuids: z
+            .array(z.string())
+            .max(20)
+            .optional()
+            .describe('Integration UUIDs (replaces existing)'),
+        note: z.string().max(255).optional().describe('Free-form note'),
+    };
+
+    const stripUndefined = (obj: Record<string, unknown>) =>
+        Object.fromEntries(
+            Object.entries(obj).filter(([, v]) => v !== undefined),
+        );
+
     server.tool(
         'nodes_create',
         'Create a new node in Remnawave',
         {
-            name: z.string().describe('Node name'),
+            name: z.string().min(3).max(30).describe('Node name'),
             address: z.string().describe('Node address (IP or hostname)'),
-            port: z.number().optional().describe('Node port'),
-            countryCode: z
-                .string()
-                .optional()
-                .describe('Country code (e.g. US, DE, NL)'),
-            isTrafficTrackingActive: z
-                .boolean()
-                .optional()
-                .describe('Enable traffic tracking'),
-            trafficLimitBytes: z
-                .number()
-                .optional()
-                .describe('Traffic limit in bytes'),
-            trafficResetDay: z
-                .number()
-                .optional()
-                .describe('Day of month to reset traffic (1-31)'),
-            notifyPercent: z
-                .number()
-                .optional()
-                .describe('Traffic notification threshold percentage'),
-            consumptionMultiplier: z
-                .number()
-                .optional()
-                .describe('Traffic consumption multiplier'),
             activeConfigProfileUuid: z
                 .string()
                 .describe('Config profile UUID to assign'),
             activeInbounds: z
                 .array(z.string())
                 .describe('Array of inbound UUIDs to enable'),
+            ...nodeFields,
         },
-        async (params) => {
+        async ({ activeConfigProfileUuid, activeInbounds, ...rest }) => {
             try {
-                const body: Record<string, unknown> = {
-                    name: params.name,
-                    address: params.address,
-                    configProfile: {
-                        activeConfigProfileUuid:
-                            params.activeConfigProfileUuid,
-                        activeInbounds: params.activeInbounds,
-                    },
-                };
-                if (params.port !== undefined) body.port = params.port;
-                if (params.countryCode !== undefined)
-                    body.countryCode = params.countryCode;
-                if (params.isTrafficTrackingActive !== undefined)
-                    body.isTrafficTrackingActive =
-                        params.isTrafficTrackingActive;
-                if (params.trafficLimitBytes !== undefined)
-                    body.trafficLimitBytes = params.trafficLimitBytes;
-                if (params.trafficResetDay !== undefined)
-                    body.trafficResetDay = params.trafficResetDay;
-                if (params.notifyPercent !== undefined)
-                    body.notifyPercent = params.notifyPercent;
-                if (params.consumptionMultiplier !== undefined)
-                    body.consumptionMultiplier = params.consumptionMultiplier;
-
-                const result = await client.createNode(body);
+                const result = await client.createNode({
+                    ...stripUndefined(rest),
+                    configProfile: { activeConfigProfileUuid, activeInbounds },
+                });
                 return toolResult(result);
             } catch (e) {
                 return toolError(e);
@@ -124,37 +154,36 @@ export function registerNodeTools(server: McpServer, client: RemnawaveClient, re
 
     server.tool(
         'nodes_update',
-        'Update an existing node',
+        'Update an existing node. To change the node\'s active config profile or active inbounds, pass configProfileUuid AND activeInbounds together (activeInbounds is the full set of inbound UUIDs the node should run, replacing the current set). A node only serves inbounds listed in its activeInbounds: adding an inbound to a profile does not activate it. Changing these restarts Xray on the node and briefly drops connected users.',
         {
             uuid: z.string().describe('Node UUID to update'),
-            name: z.string().optional().describe('New node name'),
+            name: z.string().min(3).max(30).optional().describe('New node name'),
             address: z.string().optional().describe('New address'),
-            port: z.number().optional().describe('New port'),
-            countryCode: z.string().optional().describe('New country code'),
-            isTrafficTrackingActive: z
-                .boolean()
+            configProfileUuid: z
+                .string()
                 .optional()
-                .describe('Enable/disable traffic tracking'),
-            trafficLimitBytes: z
-                .number()
+                .describe('Active config profile UUID (requires activeInbounds)'),
+            activeInbounds: z
+                .array(z.string())
                 .optional()
-                .describe('New traffic limit'),
-            trafficResetDay: z
-                .number()
-                .optional()
-                .describe('New traffic reset day'),
-            notifyPercent: z
-                .number()
-                .optional()
-                .describe('New notification threshold'),
-            consumptionMultiplier: z
-                .number()
-                .optional()
-                .describe('New consumption multiplier'),
+                .describe('Full array of inbound UUIDs to activate on the node (requires configProfileUuid)'),
+            ...nodeFields,
         },
-        async (params) => {
+        async ({ configProfileUuid, activeInbounds, ...rest }) => {
             try {
-                const result = await client.updateNode(params);
+                if ((configProfileUuid === undefined) !== (activeInbounds === undefined)) {
+                    throw new Error(
+                        'configProfileUuid and activeInbounds must be provided together',
+                    );
+                }
+                const body = stripUndefined(rest);
+                if (configProfileUuid !== undefined) {
+                    body.configProfile = {
+                        activeConfigProfileUuid: configProfileUuid,
+                        activeInbounds,
+                    };
+                }
+                const result = await client.updateNode(body);
                 return toolResult(result);
             } catch (e) {
                 return toolError(e);
@@ -218,10 +247,15 @@ export function registerNodeTools(server: McpServer, client: RemnawaveClient, re
         'Restart a specific node',
         {
             uuid: z.string().describe('Node UUID'),
+            forceRestart: z
+                .boolean()
+                .optional()
+                .default(false)
+                .describe('Force an Xray restart even if the node config has not changed (default false)'),
         },
-        async ({ uuid }) => {
+        async ({ uuid, forceRestart }) => {
             try {
-                const result = await client.restartNode(uuid);
+                const result = await client.restartNode(uuid, forceRestart);
                 return toolResult(result);
             } catch (e) {
                 return toolError(e);
@@ -232,10 +266,16 @@ export function registerNodeTools(server: McpServer, client: RemnawaveClient, re
     server.tool(
         'nodes_restart_all',
         'Restart all nodes',
-        {},
-        async () => {
+        {
+            forceRestart: z
+                .boolean()
+                .optional()
+                .default(false)
+                .describe('Force an Xray restart even if the node config has not changed (default false)'),
+        },
+        async ({ forceRestart }) => {
             try {
-                const result = await client.restartAllNodes();
+                const result = await client.restartAllNodes(forceRestart);
                 return toolResult(result);
             } catch (e) {
                 return toolError(e);
@@ -282,11 +322,11 @@ export function registerNodeTools(server: McpServer, client: RemnawaveClient, re
 
     server.tool(
         'nodes_bulk_profile_modification',
-        'Bulk modify config profile for selected nodes',
+        'Set the active config profile and active inbounds on selected nodes. activeInbounds replaces the current set. Restarts Xray on the affected nodes and briefly drops connected users.',
         {
-            uuids: z.array(z.string()).describe('Array of node UUIDs'),
+            uuids: z.array(z.string()).min(1).describe('Array of node UUIDs'),
             configProfileUuid: z.string().describe('New config profile UUID'),
-            activeInbounds: z.array(z.string()).describe('Array of inbound UUIDs to enable'),
+            activeInbounds: z.array(z.string()).min(1).describe('Full array of inbound UUIDs to activate'),
         },
         async (params) => {
             try {
@@ -326,17 +366,22 @@ export function registerNodeTools(server: McpServer, client: RemnawaveClient, re
         'nodes_bulk_update',
         'Bulk update properties for selected nodes',
         {
-            uuids: z.array(z.string()).describe('Array of node UUIDs'),
-            countryCode: z.string().optional().describe('New country code'),
-            consumptionMultiplier: z.number().optional().describe('New consumption multiplier'),
-            providerUuid: z.string().optional().describe('Infra provider UUID'),
-            tags: z.array(z.string()).optional().describe('Node tags'),
-            activePluginUuid: z.string().optional().describe('Active plugin UUID'),
+            uuids: z.array(z.string()).min(1).describe('Array of node UUIDs'),
+            countryCode: nodeFields.countryCode,
+            consumptionMultiplier: nodeFields.consumptionMultiplier,
+            nodeConsumptionMultiplier: nodeFields.nodeConsumptionMultiplier,
+            providerUuid: nodeFields.providerUuid,
+            tags: nodeFields.tags,
+            activePluginUuid: nodeFields.activePluginUuid,
+            integrationUuids: nodeFields.integrationUuids,
+            note: nodeFields.note,
         },
-        async (params) => {
+        async ({ uuids, ...fields }) => {
             try {
-                const { uuids, ...fields } = params;
-                const result = await client.bulkUpdateNodes({ uuids, fields });
+                const result = await client.bulkUpdateNodes({
+                    uuids,
+                    fields: stripUndefined(fields),
+                });
                 return toolResult(result);
             } catch (e) {
                 return toolError(e);

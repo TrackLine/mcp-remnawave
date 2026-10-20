@@ -105,10 +105,14 @@ export function registerInboundTools(
 
     server.tool(
         'config_profiles_update',
-        'Update a config profile',
+        'Update a config profile. `config` REPLACES the whole Xray config (log, inbounds, outbounds, routing, ...): fetch it with config_profiles_get, modify, and send the full object back.',
         {
             uuid: z.string().describe('Profile UUID'),
-            name: z.string().optional().describe('New name'),
+            name: z.string().optional().describe('New name (2-30 chars)'),
+            config: z
+                .record(z.unknown())
+                .optional()
+                .describe('Full Xray config JSON object (replaces the existing one)'),
         },
         async (params) => {
             try {

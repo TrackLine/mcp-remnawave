@@ -25,18 +25,18 @@ export function registerInfraBillingTools(server: McpServer, client: RemnawaveCl
     if (readonly) return;
 
     server.tool('billing_provider_create', 'Create a new billing provider', {
-        name: z.string().describe('Provider name'),
-        faviconLink: z.string().optional().describe('Favicon URL'),
-        loginUrl: z.string().optional().describe('Login page URL'),
+        name: z.string().min(2).max(30).describe('Provider name (2-30 characters)'),
+        faviconLink: z.string().url().optional().describe('Favicon URL'),
+        loginUrl: z.string().url().optional().describe('Login page URL'),
     }, async (params) => {
         try { return toolResult(await client.createBillingProvider(params)); } catch (e) { return toolError(e); }
     });
 
     server.tool('billing_provider_update', 'Update a billing provider', {
         uuid: z.string().describe('Provider UUID'),
-        name: z.string().optional().describe('New name'),
-        faviconLink: z.string().optional().describe('New favicon URL'),
-        loginUrl: z.string().optional().describe('New login page URL'),
+        name: z.string().min(2).max(30).optional().describe('New name (2-30 characters)'),
+        faviconLink: z.string().url().nullable().optional().describe('New favicon URL (null to clear)'),
+        loginUrl: z.string().url().nullable().optional().describe('New login page URL (null to clear)'),
     }, async (params) => {
         try { return toolResult(await client.updateBillingProvider(params)); } catch (e) { return toolError(e); }
     });
@@ -48,11 +48,19 @@ export function registerInfraBillingTools(server: McpServer, client: RemnawaveCl
     });
 
     server.tool('billing_node_create', 'Create a billing node', {
-        nodeUuid: z.string().describe('Node UUID'),
         providerUuid: z.string().describe('Provider UUID'),
-        nextBillingAt: z.string().optional().describe('Next billing date (ISO 8601)'),
-    }, async (params) => {
-        try { return toolResult(await client.createBillingNode(params)); } catch (e) { return toolError(e); }
+        nodeUuid: z.string().nullable().optional().describe('Node UUID (omit for a billing node not linked to a Remnawave node)'),
+        name: z.string().min(1).max(255).nullable().optional().describe('Billing node name'),
+        nextBillingAt: z.string().describe('Next billing date (ISO 8601)'),
+    }, async ({ providerUuid, nodeUuid, name, nextBillingAt }) => {
+        try {
+            return toolResult(await client.createBillingNode({
+                providerUuid,
+                nodeUuid: nodeUuid ?? null,
+                name: name ?? null,
+                nextBillingAt,
+            }));
+        } catch (e) { return toolError(e); }
     });
 
     server.tool('billing_node_update', 'Update a billing node', {
@@ -70,7 +78,7 @@ export function registerInfraBillingTools(server: McpServer, client: RemnawaveCl
 
     server.tool('billing_history_create', 'Create a billing history entry', {
         providerUuid: z.string().describe('Provider UUID'),
-        amount: z.number().describe('Amount'),
+        amount: z.number().min(0).describe('Amount'),
         billedAt: z.string().describe('Billing date (ISO 8601)'),
     }, async (params) => {
         try { return toolResult(await client.createBillingHistory(params)); } catch (e) { return toolError(e); }

@@ -4,6 +4,86 @@ import { RemnawaveClient } from '../client/index.js';
 import { toolResult, toolError } from './helpers.js';
 
 const SUBSCRIPTION_TYPES = ['XRAY_JSON', 'XRAY_BASE64', 'MIHOMO', 'STASH', 'CLASH', 'SINGBOX'] as const;
+const ALPN_VALUES = ['h3', 'h2', 'http/1.1', 'h2,http/1.1', 'h3,h2,http/1.1', 'h3,h2'] as const;
+const MIHOMO_IP_VERSIONS = ['dual', 'ipv4', 'ipv6', 'ipv4-prefer', 'ipv6-prefer'] as const;
+const jsonObject = () => z.record(z.unknown());
+
+// Fields shared by create / update / bulk update, matching
+// CreateHostCommand / UpdateHostCommand in @remnawave/backend-contract 3.4.x.
+// Nullable fields accept `null` to clear the value.
+const hostFields = {
+    configProfileUuid: z
+        .string()
+        .optional()
+        .describe('Config profile UUID (must be given together with configProfileInboundUuid)'),
+    configProfileInboundUuid: z
+        .string()
+        .optional()
+        .describe('Config profile inbound UUID (must be given together with configProfileUuid)'),
+    path: z.string().nullable().optional().describe('URL path'),
+    sni: z.string().nullable().optional().describe('SNI (Server Name Indication)'),
+    host: z.string().nullable().optional().describe('Host header'),
+    alpn: z.enum(ALPN_VALUES).nullable().optional().describe('ALPN protocol'),
+    fingerprint: z
+        .string()
+        .nullable()
+        .optional()
+        .describe('TLS fingerprint: chrome, firefox, safari, ios, android, edge, qq, 360, random, randomized'),
+    isDisabled: z.boolean().optional().describe('Disabled state'),
+    isHidden: z.boolean().optional().describe('Hide host from subscriptions'),
+    securityLayer: z.enum(['DEFAULT', 'TLS', 'NONE']).optional().describe('Security layer'),
+    xhttpExtraParams: jsonObject().nullable().optional().describe('XHTTP extra params (JSON object)'),
+    muxParams: jsonObject().nullable().optional().describe('Mux params (JSON object)'),
+    sockoptParams: jsonObject().nullable().optional().describe('Sockopt params (JSON object)'),
+    finalMask: jsonObject().nullable().optional().describe('Final mask (JSON object)'),
+    serverDescription: z.string().max(30).nullable().optional().describe('Server description (max 30 chars)'),
+    tags: z
+        .array(z.string())
+        .max(10)
+        .optional()
+        .describe('Host tags (uppercase letters, digits, _ and :, max 36 chars each, max 10)'),
+    overrideSniFromAddress: z.boolean().optional().describe('Override SNI from address'),
+    keepSniBlank: z.boolean().optional().describe('Keep SNI field blank'),
+    pinnedPeerCertSha256: z.string().nullable().optional().describe('Pinned peer certificate SHA256'),
+    verifyPeerCertByName: z.string().nullable().optional().describe('Verify peer certificate by name'),
+    vlessRouteId: z.number().int().min(0).max(65535).nullable().optional().describe('VLESS route ID (0-65535)'),
+    shuffleHost: z.boolean().optional().describe('Enable host shuffling'),
+    mihomoX25519: z.boolean().optional().describe('Enable Mihomo X25519'),
+    mihomoIpVersion: z.enum(MIHOMO_IP_VERSIONS).nullable().optional().describe('Mihomo ip-version'),
+    nodes: z.array(z.string()).optional().describe('Node UUIDs this host is bound to'),
+    xrayJsonTemplateUuid: z.string().nullable().optional().describe('Xray JSON subscription template UUID'),
+    excludeFromSubscriptionTypes: z
+        .array(z.enum(SUBSCRIPTION_TYPES))
+        .optional()
+        .describe('Subscription types to exclude this host from'),
+    internalSquads: z
+        .object({
+            mode: z
+                .enum(['EXCLUDE', 'ALLOW_ONLY'])
+                .describe('EXCLUDE: hide host from users of listed squads. ALLOW_ONLY: show host only to users of listed squads (needs at least one squad)'),
+            squads: z.array(z.string()).describe('Internal squad UUIDs'),
+        })
+        .optional()
+        .describe('Internal squad filtering. Use { mode: "EXCLUDE", squads: [] } to disable filtering'),
+    mapper: jsonObject()
+        .optional()
+        .describe('Host mapper: { xrayJson?, mihomo?, base64?, singbox? } - each an array of ops like { op: "set", to, value } | { op: "copy", from, to } | { op: "unset", to }'),
+};
+
+function buildHostBody(params: Record<string, unknown>): Record<string, unknown> {
+    const { configProfileUuid, configProfileInboundUuid, ...rest } = params;
+    const body: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(rest)) {
+        if (v !== undefined) body[k] = v;
+    }
+    if (configProfileUuid !== undefined || configProfileInboundUuid !== undefined) {
+        if (configProfileUuid === undefined || configProfileInboundUuid === undefined) {
+            throw new Error('configProfileUuid and configProfileInboundUuid must be provided together');
+        }
+        body.inbound = { configProfileUuid, configProfileInboundUuid };
+    }
+    return body;
+}
 
 export function registerHostTools(server: McpServer, client: RemnawaveClient, readonly: boolean) {
     server.tool(
@@ -56,142 +136,16 @@ export function registerHostTools(server: McpServer, client: RemnawaveClient, re
         'hosts_create',
         'Create a new host in Remnawave',
         {
-            remark: z.string().describe('Host remark/name'),
+            remark: z.string().describe('Host remark/name (1-100 chars)'),
             address: z.string().describe('Host address'),
-            port: z.number().describe('Host port'),
-            configProfileUuid: z
-                .string()
-                .describe('Config profile UUID'),
-            configProfileInboundUuid: z
-                .string()
-                .describe('Config profile inbound UUID'),
-            path: z.string().optional().describe('URL path'),
-            sni: z.string().optional().describe('SNI (Server Name Indication)'),
-            host: z.string().optional().describe('Host header'),
-            alpn: z
-                .enum(['h3', 'h2', 'http/1.1', 'h2,http/1.1', 'h3,h2,http/1.1', 'h3,h2'])
-                .optional()
-                .describe('ALPN protocol'),
-            fingerprint: z
-                .enum([
-                    'chrome',
-                    'firefox',
-                    'safari',
-                    'ios',
-                    'android',
-                    'edge',
-                    'qq',
-                    'random',
-                    'randomized',
-                ])
-                .optional()
-                .describe('TLS fingerprint'),
-            isDisabled: z
-                .boolean()
-                .optional()
-                .describe('Create in disabled state'),
-            isHidden: z
-                .boolean()
-                .optional()
-                .describe('Hide from subscription list'),
-            securityLayer: z
-                .enum(['DEFAULT', 'TLS', 'NONE'])
-                .optional()
-                .describe('Security layer'),
-            tag: z.string().optional().describe('Host tag'),
-            serverDescription: z
-                .string()
-                .optional()
-                .describe('Server description'),
-            nodes: z
-                .array(z.string())
-                .optional()
-                .describe('Array of node UUIDs to assign'),
-            excludeFromSubscriptionTypes: z
-                .array(z.enum(SUBSCRIPTION_TYPES))
-                .optional()
-                .describe('Subscription types to exclude this host from'),
-            xrayJsonTemplateUuid: z
-                .string()
-                .optional()
-                .describe('Xray JSON template UUID'),
-            excludedInternalSquads: z
-                .array(z.string())
-                .optional()
-                .describe('Internal squad UUIDs to exclude host from'),
-            overrideSniFromAddress: z
-                .boolean()
-                .optional()
-                .describe('Override SNI from address'),
-            keepSniBlank: z
-                .boolean()
-                .optional()
-                .describe('Keep SNI field blank'),
-            allowInsecure: z
-                .boolean()
-                .optional()
-                .describe('Allow insecure connections'),
-            vlessRouteId: z
-                .number()
-                .optional()
-                .describe('VLESS route ID (0-65535)'),
-            shuffleHost: z
-                .boolean()
-                .optional()
-                .describe('Enable host shuffling'),
-            mihomoX25519: z
-                .boolean()
-                .optional()
-                .describe('Enable Mihomo X25519'),
+            port: z.number().int().describe('Host port'),
+            ...hostFields,
+            configProfileUuid: z.string().describe('Config profile UUID'),
+            configProfileInboundUuid: z.string().describe('Config profile inbound UUID'),
         },
         async (params) => {
             try {
-                const body: Record<string, unknown> = {
-                    remark: params.remark,
-                    address: params.address,
-                    port: params.port,
-                    inbound: {
-                        configProfileUuid: params.configProfileUuid,
-                        configProfileInboundUuid:
-                            params.configProfileInboundUuid,
-                    },
-                };
-                if (params.path !== undefined) body.path = params.path;
-                if (params.sni !== undefined) body.sni = params.sni;
-                if (params.host !== undefined) body.host = params.host;
-                if (params.alpn !== undefined) body.alpn = params.alpn;
-                if (params.fingerprint !== undefined)
-                    body.fingerprint = params.fingerprint;
-                if (params.isDisabled !== undefined)
-                    body.isDisabled = params.isDisabled;
-                if (params.isHidden !== undefined)
-                    body.isHidden = params.isHidden;
-                if (params.securityLayer !== undefined)
-                    body.securityLayer = params.securityLayer;
-                if (params.tag !== undefined) body.tag = params.tag;
-                if (params.serverDescription !== undefined)
-                    body.serverDescription = params.serverDescription;
-                if (params.nodes !== undefined) body.nodes = params.nodes;
-                if (params.excludeFromSubscriptionTypes !== undefined)
-                    body.excludeFromSubscriptionTypes = params.excludeFromSubscriptionTypes;
-                if (params.xrayJsonTemplateUuid !== undefined)
-                    body.xrayJsonTemplateUuid = params.xrayJsonTemplateUuid;
-                if (params.excludedInternalSquads !== undefined)
-                    body.excludedInternalSquads = params.excludedInternalSquads;
-                if (params.overrideSniFromAddress !== undefined)
-                    body.overrideSniFromAddress = params.overrideSniFromAddress;
-                if (params.keepSniBlank !== undefined)
-                    body.keepSniBlank = params.keepSniBlank;
-                if (params.allowInsecure !== undefined)
-                    body.allowInsecure = params.allowInsecure;
-                if (params.vlessRouteId !== undefined)
-                    body.vlessRouteId = params.vlessRouteId;
-                if (params.shuffleHost !== undefined)
-                    body.shuffleHost = params.shuffleHost;
-                if (params.mihomoX25519 !== undefined)
-                    body.mihomoX25519 = params.mihomoX25519;
-
-                const result = await client.createHost(body);
+                const result = await client.createHost(buildHostBody(params));
                 return toolResult(result);
             } catch (e) {
                 return toolError(e);
@@ -201,104 +155,17 @@ export function registerHostTools(server: McpServer, client: RemnawaveClient, re
 
     server.tool(
         'hosts_update',
-        'Update an existing host',
+        'Update an existing host. Only provided fields are changed; pass null to clear nullable fields.',
         {
             uuid: z.string().describe('Host UUID to update'),
-            remark: z.string().optional().describe('New remark/name'),
+            remark: z.string().optional().describe('New remark/name (1-100 chars)'),
             address: z.string().optional().describe('New address'),
-            port: z.number().optional().describe('New port'),
-            configProfileUuid: z.string().optional().describe('New config profile UUID'),
-            configProfileInboundUuid: z.string().optional().describe('New config profile inbound UUID'),
-            path: z.string().optional().describe('New URL path'),
-            sni: z.string().optional().describe('New SNI'),
-            host: z.string().optional().describe('New host header'),
-            alpn: z
-                .enum(['h3', 'h2', 'http/1.1', 'h2,http/1.1', 'h3,h2,http/1.1', 'h3,h2'])
-                .optional()
-                .describe('New ALPN'),
-            fingerprint: z
-                .enum([
-                    'chrome',
-                    'firefox',
-                    'safari',
-                    'ios',
-                    'android',
-                    'edge',
-                    'qq',
-                    'random',
-                    'randomized',
-                ])
-                .optional()
-                .describe('New fingerprint'),
-            isDisabled: z
-                .boolean()
-                .optional()
-                .describe('Enable/disable host'),
-            isHidden: z
-                .boolean()
-                .optional()
-                .describe('Hide from subscription list'),
-            securityLayer: z
-                .enum(['DEFAULT', 'TLS', 'NONE'])
-                .optional()
-                .describe('New security layer'),
-            tag: z.string().optional().describe('New tag'),
-            serverDescription: z
-                .string()
-                .optional()
-                .describe('New server description'),
-            nodes: z
-                .array(z.string())
-                .optional()
-                .describe('New node UUIDs'),
-            excludeFromSubscriptionTypes: z
-                .array(z.enum(SUBSCRIPTION_TYPES))
-                .optional()
-                .describe('Subscription types to exclude this host from'),
-            xrayJsonTemplateUuid: z
-                .string()
-                .optional()
-                .describe('Xray JSON template UUID'),
-            excludedInternalSquads: z
-                .array(z.string())
-                .optional()
-                .describe('Internal squad UUIDs to exclude host from'),
-            overrideSniFromAddress: z
-                .boolean()
-                .optional()
-                .describe('Override SNI from address'),
-            keepSniBlank: z
-                .boolean()
-                .optional()
-                .describe('Keep SNI field blank'),
-            allowInsecure: z
-                .boolean()
-                .optional()
-                .describe('Allow insecure connections'),
-            vlessRouteId: z
-                .number()
-                .optional()
-                .describe('VLESS route ID (0-65535)'),
-            shuffleHost: z
-                .boolean()
-                .optional()
-                .describe('Enable host shuffling'),
-            mihomoX25519: z
-                .boolean()
-                .optional()
-                .describe('Enable Mihomo X25519'),
+            port: z.number().int().optional().describe('New port'),
+            ...hostFields,
         },
         async (params) => {
             try {
-                const { uuid, configProfileUuid, configProfileInboundUuid, ...fields } = params;
-                const body: Record<string, unknown> = { uuid, ...fields };
-                if (configProfileUuid !== undefined || configProfileInboundUuid !== undefined) {
-                    body.inbound = {
-                        ...(configProfileUuid !== undefined ? { configProfileUuid } : {}),
-                        ...(configProfileInboundUuid !== undefined ? { configProfileInboundUuid } : {}),
-                    };
-                }
-                const result = await client.updateHost(body);
+                const result = await client.updateHost(buildHostBody(params));
                 return toolResult(result);
             } catch (e) {
                 return toolError(e);
@@ -322,6 +189,22 @@ export function registerHostTools(server: McpServer, client: RemnawaveClient, re
             } catch (e) {
                 return toolError(e);
             }
+        },
+    );
+
+    server.tool(
+        'hosts_reorder',
+        'Reorder hosts',
+        {
+            hosts: z
+                .array(z.object({
+                    viewPosition: z.number().int().describe('Sort position'),
+                    uuid: z.string().describe('Host UUID'),
+                }))
+                .describe('Array of { viewPosition, uuid }'),
+        },
+        async (params) => {
+            try { return toolResult(await client.reorderHosts(params)); } catch (e) { return toolError(e); }
         },
     );
 
@@ -353,27 +236,42 @@ export function registerHostTools(server: McpServer, client: RemnawaveClient, re
     );
 
     server.tool(
-        'hosts_bulk_set_inbound',
-        'Bulk set inbound for selected hosts',
+        'hosts_bulk_update',
+        'Bulk update selected hosts: the same provided fields are applied to every host in uuids',
         {
-            uuids: z.array(z.string()).describe('Array of host UUIDs'),
+            uuids: z.array(z.string()).min(1).describe('Array of host UUIDs'),
+            remark: z.string().optional().describe('New remark/name'),
+            address: z.string().optional().describe('New address'),
+            port: z.number().int().optional().describe('New port'),
+            ...hostFields,
+        },
+        async (params) => {
+            try { return toolResult(await client.bulkUpdateHosts(buildHostBody(params))); } catch (e) { return toolError(e); }
+        },
+    );
+
+    server.tool(
+        'hosts_bulk_set_inbound',
+        'Bulk set inbound for selected hosts (shortcut for hosts_bulk_update)',
+        {
+            uuids: z.array(z.string()).min(1).describe('Array of host UUIDs'),
             configProfileUuid: z.string().describe('Config profile UUID'),
             configProfileInboundUuid: z.string().describe('Inbound UUID'),
         },
         async (params) => {
-            try { return toolResult(await client.bulkSetHostInbound(params)); } catch (e) { return toolError(e); }
+            try { return toolResult(await client.bulkUpdateHosts(buildHostBody(params))); } catch (e) { return toolError(e); }
         },
     );
 
     server.tool(
         'hosts_bulk_set_port',
-        'Bulk set port for selected hosts',
+        'Bulk set port for selected hosts (shortcut for hosts_bulk_update)',
         {
-            uuids: z.array(z.string()).describe('Array of host UUIDs'),
-            port: z.number().describe('New port number'),
+            uuids: z.array(z.string()).min(1).describe('Array of host UUIDs'),
+            port: z.number().int().describe('New port number'),
         },
         async (params) => {
-            try { return toolResult(await client.bulkSetHostPort(params)); } catch (e) { return toolError(e); }
+            try { return toolResult(await client.bulkUpdateHosts(params)); } catch (e) { return toolError(e); }
         },
     );
 }
