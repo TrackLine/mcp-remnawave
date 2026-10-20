@@ -1,3 +1,6 @@
+> [!IMPORTANT]
+> PROJECT IS CLOSED, USE PLEASE https://github.com/3APA3A-3AHO3A/remnawave-mcp
+
 # mcp-remnawave
 
 [English](#english) | [Русский](#русский)
