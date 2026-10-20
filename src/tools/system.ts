@@ -148,4 +148,68 @@ export function registerSystemTools(
             }
         },
     );
+
+    server.tool(
+        'system_configuration',
+        'Get panel configuration',
+        {},
+        async () => {
+            try {
+                const result = await client.getConfiguration();
+                return toolResult(result);
+            } catch (e) {
+                return toolError(e);
+            }
+        },
+    );
+
+    server.tool(
+        'system_http_stats',
+        'Get HTTP statistics',
+        {},
+        async () => {
+            try {
+                const result = await client.getHttpStats();
+                return toolResult(result);
+            } catch (e) {
+                return toolError(e);
+            }
+        },
+    );
+
+    server.tool(
+        'system_stats_digest',
+        'Get a statistics digest for a date range',
+        {
+            start: z.string().describe('Start date YYYY-MM-DD'),
+            end: z.string().describe('End date YYYY-MM-DD'),
+        },
+        async ({ start, end }) => {
+            try {
+                const result = await client.getStatsDigest(start, end);
+                return toolResult(result);
+            } catch (e) {
+                return toolError(e);
+            }
+        },
+    );
+
+    server.tool(
+        'bandwidth_user_usage',
+        'Bandwidth usage for one user over a date range. The user is a numeric id.',
+        {
+            userId: z.number(),
+            start: z.string().describe('Start date YYYY-MM-DD'),
+            end: z.string().describe('End date YYYY-MM-DD'),
+            topNodesLimit: z.number().optional(),
+        },
+        async ({ userId, start, end, topNodesLimit }) => {
+            try {
+                const result = await client.getUserBandwidth(userId, start, end, topNodesLimit);
+                return toolResult(result);
+            } catch (e) {
+                return toolError(e);
+            }
+        },
+    );
 }

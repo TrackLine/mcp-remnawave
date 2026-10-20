@@ -10,10 +10,18 @@ export function registerApiTokenTools(server: McpServer, client: RemnawaveClient
 
     if (readonly) return;
 
-    server.tool('api_tokens_create', 'Create a new API token', {
-        tokenName: z.string().describe('Token name'),
-    }, async (params) => {
-        try { return toolResult(await client.createApiToken(params)); } catch (e) { return toolError(e); }
+    server.tool('api_tokens_create', 'Create a new API token. The panel forbids creating a token with an API key; it needs an admin JWT.', {
+        name: z.string(),
+        expiresInDays: z.number().describe('Days until the token expires'),
+        scopes: z.array(z.string()).optional().describe('Token scopes. Omit for the panel default of all scopes'),
+    }, async ({ name, expiresInDays, scopes }) => {
+        try {
+            return toolResult(await client.createApiToken({
+                name,
+                expiresInDays,
+                ...(scopes !== undefined ? { scopes } : {}),
+            }));
+        } catch (e) { return toolError(e); }
     });
 
     server.tool('api_tokens_delete', 'Delete an API token', {

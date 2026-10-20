@@ -13,17 +13,25 @@
 
 MCP server ([Model Context Protocol](https://modelcontextprotocol.io)) providing LLM clients (Claude Desktop, Cursor, Windsurf, etc.) with tools to manage a [Remnawave](https://github.com/remnawave/) VPN panel.
 
-**Version:** 1.2.0 | **Remnawave API:** 2.7.4
+**Version:** 1.3.0 | **Remnawave API:** 3.4.4 (backend-contract 3.4.15)
 
 ### Features
 
-- **153 tools** — full management of users, nodes, hosts, subscriptions, squads, HWID, config profiles, inbounds, API tokens, billing, snippets, external squads, settings, subscription page configs, node plugins, IP control, and metadata
+- **Tool set follows Remnawave 3.4.4** — full management of users, nodes, hosts, subscriptions, squads, HWID, config profiles, inbounds, API tokens, billing, snippets, external squads, settings, subscription page configs, node plugins, and metadata
 - **3 resources** — real-time panel stats, node status, health checks
 - **5 prompts** — guided workflows for common tasks
-- **Readonly mode** — restrict to 69 read-only tools for safe monitoring
+- **Readonly mode** — write tools stay unregistered
 - **Caddy support** — `X-Api-Key` header for panels behind Caddy with custom path
 - **Type-safe** — built on [@remnawave/backend-contract](https://www.npmjs.com/package/@remnawave/backend-contract) for API route validation
 - **stdio transport** — works with Claude Desktop, Cursor, Windsurf, and any MCP-compatible client
+
+### API 3.4.4
+
+- Users are addressed by numeric id. Lookup by email, telegram id, tag and subscription uuid was removed. Use `users_stream` filters, `users_get_by_username`, `users_get_by_short_uuid`, or `users_resolve` (exactly one of id, shortUuid, username).
+- Bulk user operations and HWID device calls take `userIds` / `userId`, not UUIDs.
+- IP control tools were removed. Connection tools replace them: `connections_by_user`, `connections_by_node`, `connections_geocheck`, `connections_drop` (drop by userIds or ip addresses).
+- Internal squad membership of specific users uses numeric user ids (`squads_add_users` / `squads_remove_users`). `squads_add_all_users`, `squads_remove_all_users`, `external_squads_add_all_users` and `external_squads_remove_all_users` affect every user.
+- API token create fields are `name`, `expiresInDays` and optional `scopes`.
 
 ### Requirements
 
@@ -72,11 +80,11 @@ Set `REMNAWAVE_READONLY=true` to disable all write operations (create, update, d
 
 Useful for monitoring dashboards or shared environments where you want to prevent accidental changes.
 
-In readonly mode, the available tools are reduced from 153 to 69:
+In readonly mode, write tools are not registered. The read-only set follows Remnawave 3.4.4:
 
 | Category | Available tools |
 |----------|----------------|
-| Users (10) | `users_list`, `users_get`, `users_get_by_username`, `users_get_by_short_uuid`, `users_get_by_telegram_id`, `users_get_by_email`, `users_get_by_tag`, `users_get_by_subscription_uuid`, `users_tags_list`, `users_resolve` |
+| Users | `users_list`, `users_get`, `users_get_by_username`, `users_get_by_short_uuid`, `users_stream`, `users_tags_list`, `users_resolve`, `users_accessible_nodes`, `users_subscription_request_history` |
 | Nodes (3) | `nodes_list`, `nodes_get`, `nodes_tags_list` |
 | Hosts (3) | `hosts_list`, `hosts_get`, `hosts_tags_list` |
 | System (10) | all tools (read-only by nature) |
@@ -92,7 +100,7 @@ In readonly mode, the available tools are reduced from 153 to 69:
 | Settings (1) | `settings_get` |
 | Sub Page Configs (2) | `sub_page_configs_list`, `sub_page_configs_get` |
 | Node Plugins (4) | `node_plugins_list`, `node_plugins_get`, `node_plugins_torrent_reports`, `node_plugins_torrent_stats` |
-| IP Control (4) | `ip_control_fetch_ips`, `ip_control_get_fetch_ips_result`, `ip_control_fetch_users_ips`, `ip_control_get_fetch_users_ips_result` |
+| Connections | `connections_by_user`, `connections_by_user_result`, `connections_by_node`, `connections_by_node_result`, `connections_geocheck`, `connections_geocheck_result` |
 | Metadata (2) | `metadata_node_get`, `metadata_user_get` |
 
 ### Usage with Claude Desktop
@@ -153,13 +161,12 @@ Environment variables are passed via `.env` file or `docker-compose.yml`.
 | Tool | Description | Mode |
 |------|-------------|------|
 | `users_list` | List all users with pagination | read |
-| `users_get` | Get user by UUID | read |
+| `users_get` | Get user by numeric id | read |
 | `users_get_by_username` | Get user by username | read |
 | `users_get_by_short_uuid` | Get user by short UUID | read |
-| `users_get_by_telegram_id` | Get user by Telegram ID | read |
-| `users_get_by_email` | Get user by email | read |
-| `users_get_by_tag` | Get user by tag | read |
-| `users_get_by_subscription_uuid` | Get user by subscription UUID | read |
+| `users_stream` | List users by cursor, with email, tag and telegram filters | read |
+| `users_accessible_nodes` | Nodes available to a user | read |
+| `users_subscription_request_history` | Recent subscription requests for a user | read |
 | `users_tags_list` | List all user tags | read |
 | `users_resolve` | Resolve users by multiple criteria | read |
 | `users_create` | Create a new user | write |
@@ -169,6 +176,7 @@ Environment variables are passed via `.env` file or `docker-compose.yml`.
 | `users_disable` | Disable a user | write |
 | `users_revoke_subscription` | Revoke subscription (regenerate link) | write |
 | `users_reset_traffic` | Reset traffic counter | write |
+| `users_extend_expiration` | Extend one user's expiration by a number of days | write |
 | `users_bulk_delete_by_status` | Bulk delete users by status | write |
 | `users_bulk_update` | Bulk update users | write |
 | `users_bulk_reset_traffic` | Bulk reset traffic | write |
@@ -213,8 +221,7 @@ Environment variables are passed via `.env` file or `docker-compose.yml`.
 | `hosts_bulk_enable` | Bulk enable hosts | write |
 | `hosts_bulk_disable` | Bulk disable hosts | write |
 | `hosts_bulk_delete` | Bulk delete hosts | write |
-| `hosts_bulk_set_inbound` | Bulk set host inbound | write |
-| `hosts_bulk_set_port` | Bulk set host port | write |
+| `hosts_bulk_update` | Bulk update hosts (inbound and port) | write |
 
 #### System (10 tools)
 
@@ -236,7 +243,7 @@ Environment variables are passed via `.env` file or `docker-compose.yml`.
 | Tool | Description | Mode |
 |------|-------------|------|
 | `subscriptions_list` | List all subscriptions | read |
-| `subscriptions_get_by_uuid` | Get subscription by UUID | read |
+| `subscriptions_get_by_user_id` | Get subscription by numeric user id | read |
 | `subscriptions_get_by_username` | Get subscription by username | read |
 | `subscriptions_get_by_short_uuid` | Get subscription by short UUID | read |
 | `subscriptions_get_raw_by_short_uuid` | Get raw subscription by short UUID | read |
@@ -269,8 +276,10 @@ Environment variables are passed via `.env` file or `docker-compose.yml`.
 | `squads_create` | Create a squad | write |
 | `squads_update` | Update a squad | write |
 | `squads_delete` | Delete a squad | write |
-| `squads_add_users` | Add users to a squad | write |
-| `squads_remove_users` | Remove users from a squad | write |
+| `squads_add_users` | Add users (numeric ids) to a squad | write |
+| `squads_remove_users` | Remove users (numeric ids) from a squad | write |
+| `squads_add_all_users` | Add every user to a squad | write |
+| `squads_remove_all_users` | Remove every user from a squad | write |
 
 #### HWID Devices (7 tools)
 
@@ -333,8 +342,8 @@ Environment variables are passed via `.env` file or `docker-compose.yml`.
 | `external_squads_create` | Create external squad | write |
 | `external_squads_update` | Update external squad | write |
 | `external_squads_delete` | Delete external squad | write |
-| `external_squads_add_users` | Add users to external squad | write |
-| `external_squads_remove_users` | Remove users from external squad | write |
+| `external_squads_add_all_users` | Add every user to an external squad | write |
+| `external_squads_remove_all_users` | Remove every user from an external squad | write |
 | `external_squads_reorder` | Reorder external squads | write |
 
 #### Settings (2 tools)
@@ -372,15 +381,17 @@ Environment variables are passed via `.env` file or `docker-compose.yml`.
 | `node_plugins_execute` | Execute node plugin | write |
 | `node_plugins_torrent_truncate` | Truncate torrent blocker reports | write |
 
-#### IP Control (5 tools)
+#### Connections (7 tools)
 
 | Tool | Description | Mode |
 |------|-------------|------|
-| `ip_control_fetch_ips` | Fetch IPs for a user | read |
-| `ip_control_get_fetch_ips_result` | Get fetch IPs job result | read |
-| `ip_control_fetch_users_ips` | Fetch users IPs on a node | read |
-| `ip_control_get_fetch_users_ips_result` | Get fetch users IPs job result | read |
-| `ip_control_drop_connections` | Drop user connections | write |
+| `connections_by_user` | Queue a user's active connections | read |
+| `connections_by_user_result` | Read that job | read |
+| `connections_by_node` | Queue a node's active connections | read |
+| `connections_by_node_result` | Read that job | read |
+| `connections_geocheck` | Queue a node geocheck | read |
+| `connections_geocheck_result` | Read that job | read |
+| `connections_drop` | Drop connections by user ids or IP addresses | write |
 
 #### Metadata (4 tools)
 
@@ -472,17 +483,25 @@ MIT
 
 MCP-сервер ([Model Context Protocol](https://modelcontextprotocol.io)), предоставляющий LLM-клиентам (Claude Desktop, Cursor, Windsurf и др.) инструменты для управления VPN-панелью [Remnawave](https://github.com/remnawave/).
 
-**Версия:** 1.2.0 | **Remnawave API:** 2.7.4
+**Версия:** 1.3.0 | **Remnawave API:** 3.4.4 (backend-contract 3.4.15)
 
 ### Возможности
 
-- **153 инструмента** — полное управление пользователями, нодами, хостами, подписками, группами, HWID, конфиг-профилями, inbounds, API-токенами, биллингом, сниппетами, внешними группами, настройками, страницами подписок, плагинами нод, IP-контролем и метаданными
+- **Набор инструментов соответствует Remnawave 3.4.4** — полное управление пользователями, нодами, хостами, подписками, группами, HWID, конфиг-профилями, inbounds, API-токенами, биллингом, сниппетами, внешними группами, настройками, страницами подписок, плагинами нод и метаданными
 - **3 ресурса** — статистика панели, статус нод, проверка здоровья в реальном времени
 - **5 промптов** — пошаговые сценарии для типичных задач
-- **Readonly-режим** — ограничение до 69 инструментов только для чтения
+- **Readonly-режим** — инструменты записи не регистрируются
 - **Поддержка Caddy** — заголовок `X-Api-Key` для панелей за Caddy с кастомным путём
 - **Type-safe** — построен на [@remnawave/backend-contract](https://www.npmjs.com/package/@remnawave/backend-contract) для валидации API-маршрутов
 - **stdio транспорт** — работает с Claude Desktop, Cursor, Windsurf и любым MCP-совместимым клиентом
+
+### API 3.4.4
+
+- Пользователь адресуется числовым id. Поиск по email, Telegram, тегу и UUID подписки снят. Фильтры: `users_stream`, `users_get_by_username`, `users_get_by_short_uuid`, `users_resolve` (ровно одно из id, shortUuid, username).
+- Массовые операции и HWID принимают `userIds` / `userId`.
+- IP-контроль заменён инструментами соединений: `connections_by_user`, `connections_by_node`, `connections_geocheck`, `connections_drop`.
+- Выборочное членство во внутренней группе — числовые id (`squads_add_users` / `squads_remove_users`). `squads_add_all_users`, `squads_remove_all_users`, `external_squads_add_all_users` и `external_squads_remove_all_users` затрагивают всех пользователей.
+- Создание API-токена: `name`, `expiresInDays` и необязательные `scopes`.
 
 ### Требования
 
@@ -531,11 +550,11 @@ REMNAWAVE_API_KEY=ваш-caddy-api-ключ
 
 Полезно для мониторинговых дашбордов или общих окружений, где нужно исключить случайные изменения.
 
-В readonly-режиме количество доступных инструментов сокращается с 153 до 69:
+В readonly-режиме инструменты записи не регистрируются. Набор инструментов только для чтения соответствует Remnawave 3.4.4:
 
 | Категория | Доступные инструменты |
 |-----------|----------------------|
-| Пользователи (10) | `users_list`, `users_get`, `users_get_by_username`, `users_get_by_short_uuid`, `users_get_by_telegram_id`, `users_get_by_email`, `users_get_by_tag`, `users_get_by_subscription_uuid`, `users_tags_list`, `users_resolve` |
+| Пользователи | `users_list`, `users_get`, `users_get_by_username`, `users_get_by_short_uuid`, `users_stream`, `users_tags_list`, `users_resolve`, `users_accessible_nodes`, `users_subscription_request_history` |
 | Ноды (3) | `nodes_list`, `nodes_get`, `nodes_tags_list` |
 | Хосты (3) | `hosts_list`, `hosts_get`, `hosts_tags_list` |
 | Система (10) | все инструменты (только чтение по природе) |
@@ -551,7 +570,7 @@ REMNAWAVE_API_KEY=ваш-caddy-api-ключ
 | Настройки (1) | `settings_get` |
 | Страницы подписок (2) | `sub_page_configs_list`, `sub_page_configs_get` |
 | Плагины нод (4) | `node_plugins_list`, `node_plugins_get`, `node_plugins_torrent_reports`, `node_plugins_torrent_stats` |
-| IP-контроль (4) | `ip_control_fetch_ips`, `ip_control_get_fetch_ips_result`, `ip_control_fetch_users_ips`, `ip_control_get_fetch_users_ips_result` |
+| Соединения | `connections_by_user`, `connections_by_user_result`, `connections_by_node`, `connections_by_node_result`, `connections_geocheck`, `connections_geocheck_result` |
 | Метаданные (2) | `metadata_node_get`, `metadata_user_get` |
 
 ### Использование с Claude Desktop
@@ -612,13 +631,12 @@ docker compose up -d
 | Инструмент | Описание | Режим |
 |------------|----------|-------|
 | `users_list` | Список пользователей с пагинацией | read |
-| `users_get` | Получить пользователя по UUID | read |
+| `users_get` | Получить пользователя по числовому id | read |
 | `users_get_by_username` | Получить пользователя по username | read |
 | `users_get_by_short_uuid` | Получить пользователя по short UUID | read |
-| `users_get_by_telegram_id` | Получить пользователя по Telegram ID | read |
-| `users_get_by_email` | Получить пользователя по email | read |
-| `users_get_by_tag` | Получить пользователя по тегу | read |
-| `users_get_by_subscription_uuid` | Получить пользователя по UUID подписки | read |
+| `users_stream` | Список по курсору, фильтры email, тег и Telegram | read |
+| `users_accessible_nodes` | Ноды, доступные пользователю | read |
+| `users_subscription_request_history` | Недавние запросы подписки пользователя | read |
 | `users_tags_list` | Список тегов пользователей | read |
 | `users_resolve` | Поиск пользователей по нескольким критериям | read |
 | `users_create` | Создать нового пользователя | write |
@@ -628,6 +646,7 @@ docker compose up -d
 | `users_disable` | Отключить пользователя | write |
 | `users_revoke_subscription` | Отозвать подписку (перегенерировать ссылку) | write |
 | `users_reset_traffic` | Сбросить счётчик трафика | write |
+| `users_extend_expiration` | Продлить срок одному пользователю на число дней | write |
 | `users_bulk_delete_by_status` | Массовое удаление по статусу | write |
 | `users_bulk_update` | Массовое обновление | write |
 | `users_bulk_reset_traffic` | Массовый сброс трафика | write |
@@ -672,8 +691,7 @@ docker compose up -d
 | `hosts_bulk_enable` | Массовое включение хостов | write |
 | `hosts_bulk_disable` | Массовое отключение хостов | write |
 | `hosts_bulk_delete` | Массовое удаление хостов | write |
-| `hosts_bulk_set_inbound` | Массовая установка inbound | write |
-| `hosts_bulk_set_port` | Массовая установка порта | write |
+| `hosts_bulk_update` | Массовое обновление хостов (inbound и порт) | write |
 
 #### Система (10 инструментов)
 
@@ -695,7 +713,7 @@ docker compose up -d
 | Инструмент | Описание | Режим |
 |------------|----------|-------|
 | `subscriptions_list` | Список всех подписок | read |
-| `subscriptions_get_by_uuid` | Подписка по UUID | read |
+| `subscriptions_get_by_user_id` | Подписка по числовому id пользователя | read |
 | `subscriptions_get_by_username` | Подписка по username | read |
 | `subscriptions_get_by_short_uuid` | Подписка по short UUID | read |
 | `subscriptions_get_raw_by_short_uuid` | Сырая подписка по short UUID | read |
@@ -728,8 +746,10 @@ docker compose up -d
 | `squads_create` | Создать группу | write |
 | `squads_update` | Обновить группу | write |
 | `squads_delete` | Удалить группу | write |
-| `squads_add_users` | Добавить пользователей в группу | write |
-| `squads_remove_users` | Убрать пользователей из группы | write |
+| `squads_add_users` | Добавить пользователей (числовые id) в группу | write |
+| `squads_remove_users` | Убрать пользователей (числовые id) из группы | write |
+| `squads_add_all_users` | Добавить всех пользователей в группу | write |
+| `squads_remove_all_users` | Убрать всех пользователей из группы | write |
 
 #### HWID-устройства (7 инструментов)
 
@@ -792,8 +812,8 @@ docker compose up -d
 | `external_squads_create` | Создать внешнюю группу | write |
 | `external_squads_update` | Обновить внешнюю группу | write |
 | `external_squads_delete` | Удалить внешнюю группу | write |
-| `external_squads_add_users` | Добавить пользователей | write |
-| `external_squads_remove_users` | Убрать пользователей | write |
+| `external_squads_add_all_users` | Добавить всех пользователей во внешнюю группу | write |
+| `external_squads_remove_all_users` | Убрать всех пользователей из внешней группы | write |
 | `external_squads_reorder` | Переупорядочить | write |
 
 #### Настройки (2 инструмента)
@@ -831,15 +851,17 @@ docker compose up -d
 | `node_plugins_execute` | Выполнить плагин | write |
 | `node_plugins_torrent_truncate` | Очистить отчёты торрент-блокировщика | write |
 
-#### IP-контроль (5 инструментов)
+#### Соединения (7 инструментов)
 
 | Инструмент | Описание | Режим |
 |------------|----------|-------|
-| `ip_control_fetch_ips` | Получить IP пользователя | read |
-| `ip_control_get_fetch_ips_result` | Результат запроса IP | read |
-| `ip_control_fetch_users_ips` | Получить IP пользователей на ноде | read |
-| `ip_control_get_fetch_users_ips_result` | Результат запроса IP пользователей | read |
-| `ip_control_drop_connections` | Сбросить соединения | write |
+| `connections_by_user` | Поставить в очередь соединения пользователя | read |
+| `connections_by_user_result` | Прочитать эту задачу | read |
+| `connections_by_node` | Поставить в очередь соединения ноды | read |
+| `connections_by_node_result` | Прочитать эту задачу | read |
+| `connections_geocheck` | Поставить в очередь геопроверку ноды | read |
+| `connections_geocheck_result` | Прочитать эту задачу | read |
+| `connections_drop` | Сбросить соединения по id пользователей или IP | write |
 
 #### Метаданные (4 инструмента)
 

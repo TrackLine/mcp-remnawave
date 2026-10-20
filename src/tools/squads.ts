@@ -95,18 +95,18 @@ export function registerSquadTools(
 
     server.tool(
         'squads_add_users',
-        'Add users to an internal squad',
+        'Add these users (numeric ids) to an internal squad',
         {
             squadUuid: z.string().describe('Squad UUID'),
-            userUuids: z
-                .array(z.string())
-                .describe('Array of user UUIDs to add'),
+            userIds: z
+                .array(z.number())
+                .describe('Array of numeric user ids to add'),
         },
-        async ({ squadUuid, userUuids }) => {
+        async ({ squadUuid, userIds }) => {
             try {
                 const result = await client.addUsersToSquad(
                     squadUuid,
-                    userUuids,
+                    userIds,
                 );
                 return toolResult(result);
             } catch (e) {
@@ -117,19 +117,52 @@ export function registerSquadTools(
 
     server.tool(
         'squads_remove_users',
-        'Remove users from an internal squad',
+        'Remove these users (numeric ids) from an internal squad',
         {
             squadUuid: z.string().describe('Squad UUID'),
-            userUuids: z
-                .array(z.string())
-                .describe('Array of user UUIDs to remove'),
+            userIds: z
+                .array(z.number())
+                .describe('Array of numeric user ids to remove'),
         },
-        async ({ squadUuid, userUuids }) => {
+        async ({ squadUuid, userIds }) => {
             try {
                 const result = await client.removeUsersFromSquad(
                     squadUuid,
-                    userUuids,
+                    userIds,
                 );
+                return toolResult(result);
+            } catch (e) {
+                return toolError(e);
+            }
+        },
+    );
+
+    server.tool(
+        'squads_add_all_users',
+        'Add EVERY user in the panel to the squad',
+        {
+            squadUuid: z.string().describe('Squad UUID'),
+        },
+        async ({ squadUuid }) => {
+            try {
+                const result = await client.addAllUsersToSquad(squadUuid);
+                return toolResult(result);
+            } catch (e) {
+                return toolError(e);
+            }
+        },
+    );
+
+    server.tool(
+        'squads_remove_all_users',
+        'Remove EVERY user from the squad',
+        {
+            squadUuid: z.string().describe('Squad UUID'),
+        },
+        async ({ squadUuid }) => {
+            try {
+                const result =
+                    await client.removeAllUsersFromSquad(squadUuid);
                 return toolResult(result);
             } catch (e) {
                 return toolError(e);
